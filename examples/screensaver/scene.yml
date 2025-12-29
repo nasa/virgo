@@ -1,0 +1,32 @@
+# Configuration file for VIRGO to consume related to this simulation configuration
+name: VIRGO-based screensaver
+description: |
+     An example of how VIRGO can be extended to alter the behavior
+     of the framework. This example creates classes that extende from
+     VIRGO base classes to provide a screensaver application that
+     displays the current local time and weather.
+resolution: 1280x720
+start_mode: PLAYING
+background_color: [0.0, 0.0, 0.05]
+starfield: 1
+actors:
+  moon: 
+    mesh: VIRGO_PREFAB:moon8k      # High resolution moon
+    scale: 1.0             # Size multiplier
+    pos:   [0.0, 0.0, 0.0] # initial position offset in scene
+    ypr:   [0.0, 0.0, 0.0] # pitch-yaw-roll rotation offset, applied after pos:
+  earth: 
+    mesh: VIRGO_PREFAB:earth       # Medium resolution earth
+    # Note that we don't position earth here with pos:, instead we move
+    # earth's entire node with set_pose(), see screensaver.py. pos: is
+    # intended for offsetting a mesh within the node, not moving the node
+    # itself.
+camera:
+  position: [0.0, -13381000.0, 0]  # Initial camera position
+  focal_point: [0, 0, 0]           # Where the camera points
+sun:
+  direction: [1.0, 0.0, 0.0]  # World vector pointing towards sun
+lighting:
+  start_mode: realistic
+  dark_ambient: 0.1
+  bright_ambient: 0.7

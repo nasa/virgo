@@ -1,0 +1,6 @@
+tests/*_doctest_*.txt
+tests/*.png
+**.mp4
+examples/entry/*.csv
+examples/pendulums/*.csv
+.venv

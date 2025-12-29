@@ -1,0 +1,11 @@
+# imageio* are only needed for pictures and video rendering
+imageio
+imageio-ffmpeg
+numpy
+pandas
+pyYAML
+# psutil only needed for RAM diagnostic info
+psutil
+# requests only needed for examples/screensaver
+requests
+vtk

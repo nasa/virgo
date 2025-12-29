@@ -1,0 +1,88 @@
+name: VIRGO Splashdown Example
+description: |
+    Based on output generated from Trick's SIM_splashdown, this
+    scene visualizes a common capsule shaped crew module interacting
+    with water in a splashdown simulation starting at a 120 degree
+    rotation. See more information about the sim which generated this
+    data here:
+    https://github.com/nasa/trick/tree/master/trick_sims/SIM_splashdown
+resolution: 1280x720
+background_color: [0.0, 0.0, 0.05]   # Background color of the scene
+highlight_color: [1.0, 1.0, 0.0]     # RGB Highlight color when objects are picked
+start_mode: PAUSED                   # Start the scene paused
+end_mode: PAUSED                     # End the scene paused
+playback_speed: 1.0                  # Default playback speed 1.0X realtime
+playback_speeds: [1.0, 2.0, 5.0]     # Available playback speeds
+# This section defines the data VIRGO consumes to drive actors in the scene
+data_source:
+  trickpy:  # The log_pendulum.csv data file is in TrickPy-compatible format
+    # The time alias definition for the pendulum logging group. This maps
+    # the 1st column of log_pendulum.csv to a VIRGO data alias named 'ball_time'
+    sim_time:
+      group: splashdown # Data recording group e.g. 'splashdown' in log_splashdown.csv
+      var: sys.exec.out.time  # Name given to time first column which must represent time
+    capsule_pos:        # User-defined VIRGO alias for position of the capsule
+      group: splashdown # Data recording group e.g. 'splashdown' in log_splashdown.csv
+      # Data recording variables (columns) in CSV file. x-position is position[0]
+      # y-position is position[1], and z-position is position[2]
+      var: crewModule.dyn.position[0-2]
+    capsule_rot:        # User-defined VIRGO alias for rotation of the capsule
+      group: splashdown # Data recording group e.g. 'splashdown' in log_splashdown.csv
+      # Data recording variables (columns) in CSV file. R is the 3x3 rotation matrix
+      # from world to body
+      var: crewModule.dyn.R[0-2][0-2]
+    capsule_cob:        # User-defined VIRGO alias for center of bouyancy
+      group: splashdown # Data recording group e.g. 'splashdown' in log_splashdown.csv
+      # Data recording variables (columns) in CSV file. x-position is position[0]
+      # y-position is position[1], and z-position is position[2]
+      var: crewModule.dyn.center_of_buoyancy[0-2]
+
+frames:
+  center_of_buoyancy: # A frame defined for where green_ball attaches
+    #pos:   [0.0, 0.0, 0.0]  # position in scene, no offset
+    #ypr:   [0.0, 0.0, 0.0]  # 
+    axes: 
+      when: always     # always, never, picked, or toggled
+      style: cylinder  # cylinder or line
+      length: [0.5, 0.5, 0.5]  # x_length, y_length, z_length
+    labels:
+      name:
+        color: [1.0, 0.0, 1.0]
+        text: "CoB"
+        ypr: [0.0, 0.0, 90.0]  # 90 degree X-axes rotation for visibility
+        scale: 0.3
+    driven_by:  # Defines how this actor is driven in the scene
+      time: sim_time  
+      pos: capsule_cob 
+
+actors:
+  water:
+    mesh: VIRGO_PREFAB:cube
+    scale: 10
+    pos: [0, 0, -5]
+    color: [0, 0, 0.8]
+    opacity: 0.5
+    axes: 
+      when: never  # always, never, picked, or toggled
+      style: line  # cylinder, line
+  capsule:
+    mesh: capsule.stl
+    color: [0.8, 0.8, 0.8]
+    opacity: 0.99
+    axes: 
+      when: always       # always, never, picked, or toggled
+      style: line        # cylinder, line
+      affect_opacity: 1  # 0 or 1 to reduce opacity when axes visible
+    scale: 2.20          # See README.md for details on this number
+    driven_by:  # Defines how this actor is driven in the scene
+      time: sim_time  
+      pos: capsule_pos 
+      rot: capsule_rot 
+
+lighting:
+    start_mode: ultrabright
+camera:
+    position: [-3.5, -21.0, 6.5]
+    focal_point: [0.0, 0.0, 3.0]
+    view_up: [0.0, 0.0, 1.0]
+    #follow: capsule

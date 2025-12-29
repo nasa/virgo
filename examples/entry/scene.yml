@@ -1,0 +1,81 @@
+# Configuration file for VIRGO to consume related to this simulation configuration
+name: VIRGO entry example
+description: |
+     This scene visualizes a spacecraft (represented by a cube) in a simulated
+     re-entry scenario. The spacecraft starts in an orbit with a speed low enough
+     to decay into layers of the atmosphere.  Upon reaching the atmopsheric
+     interface, basic aerodynamic forces are applied until the spacecraft finally
+     reaches an altitude <= 0.0 meters.
+resolution: 1280x720
+start_mode: PAUSED
+end_mode: PAUSED
+background_color: [0.0, 0.0, 0.05]
+highlight_color: [1.0, 1.0, 0.0]
+playback_speeds: [1.0, 5.0, 10.0, 20.0, 50.0, 100.0]
+playback_speed: 1.0
+starfield: 1
+data_source:
+  trickpy:  # Logged data to read into virgo during init
+    time: 
+      group: trajectory            # Data recording group
+      var: time   # Name given to time (first) column
+    # Everything else is a data alias for logged data variables
+    sat_pos: 
+      group: trajectory            # Data recording group
+      var: position[0-2] # Data recording variable
+    sat_rot: 
+      group: trajectory                # Data recording group
+      var: R[0-2][0-2]  # Data recording variable
+    sat_alt: 
+      group: trajectory                # Data recording group
+      var: altitude  # Data recording variable
+actors:
+  earth: 
+    mesh: VIRGO_PREFAB:earth-3000
+    scale: 1.0             # Size multiplier
+    pos:   [0.0, 0.0, 0.0] # initial position offset in scene
+    ypr:   [0.0, 0.0, 0.0] # pitch-yaw-roll rotation offset, applied after pos:
+    pickable: 0
+    labels:
+      name:
+        text: "Earth"
+        pos: [0.0, 0.0, 6500000.0]
+        ypr: [0.0, 0.0, 90.0]
+        scale: 300000
+  satellite:
+    mesh: VIRGO_PREFAB:cube         # Size multiplier
+    scale: 3.0
+    pos: [0.0, 0.0, 0.0]
+    ypr: [0.0, 0.0, 0.0]
+    color: [0.6, 0.6, 0.6]
+    trail:
+      enabled: 1
+      color: [0.0, 1.0, 0.0] #  # Color of trail
+      thickness: 5
+      opacity: 1.0
+    driven_by:  # Actor position/rotation driven by these data aliases
+      time: time
+      pos: sat_pos
+      rot: sat_rot
+    provide_aliases: # Other data aliases this node should have access to
+      - sat_alt      # Expose altitude to this actor/node (used in extension)
+    labels:
+      name:
+        scale: 1.5
+        color: [1.0, 1.0, 1.0]
+        text: "Altitude {sat_alt:<10.1f} m"
+        pos: [0.0, 0.0, 5.0]
+        ypr: [90.0, 0.0, 90.0]
+        #ypr: [0.0, 0.0, 0.0]
+picker:
+  tolerance: 2e-10
+camera:
+  follow: satellite
+  near_clipping_plane_tolerance: 5e-7
+sun:
+  direction: [1.0, 0.0, 0.0]  # World vector pointing towards sun
+
+lighting:
+  start_mode: ultrabright
+  dark_ambient: 0.2
+  bright_ambient: 0.7

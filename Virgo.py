@@ -164,6 +164,7 @@ class VirgoControlCenter:
         self.huge = 1.0e30   # A huge floating point number used for finding smallest values
         # Current scene world time (not necessarily aligned with sim data time)
         self.world_time = self.world_time_start = world_time 
+        self.timeless = False  # Flag for a scene where time doesn't exist
         self.force_node_update = False     # If true, force node update even when paused
         self.wallclock_time = time.time()  # Actual wall clock time in real life
         self.max_sim_time = 0.0            # highest sim time across all dr groups
@@ -336,17 +337,29 @@ class VirgoControlCenter:
                                           vcc=self, font_size=self.fs)
 
     def initialize_hud(self, _class=VirgoHud):
-        self.hud = _class(self.render_window, self.renderers, self.text_actors, self.nodes)
+        hud_color = [1.0, 1.0, 1.0]
+        if 'hud_color' in self.scene and self.scene['hud_color'] != None:
+            hud_color = self.scene['hud_color']
+        self.hud = _class(self.render_window, self.renderers,
+                          self.text_actors, self.nodes, color=hud_color)
 
     def _determine_max_and_min_sim_time(self):
         """
         Store off the highest simulation time known across all non-static
         nodes/actors.
         """
+        non_static_nodes = []
         for n in self.nodes:
-            # Skip any static actors as they dont have self._times
-            if self.nodes[n].is_static() or self.nodes[n].data_source == None:
+            # Skip any static actors because they never move
+            if self.nodes[n].is_static():
                 continue
+            non_static_nodes.append(n)
+
+        if len(non_static_nodes) == 0:
+            print("Warning: all found nodes are static so the play/pause is disabled")
+            self.timeless = True
+
+        for n in non_static_nodes:
             last_time_for_actor = self.nodes[n].data_source.get_last_time()
             first_time_for_actor = self.nodes[n].data_source.get_first_time()
             if last_time_for_actor > self.max_sim_time:
@@ -429,7 +442,6 @@ class VirgoControlCenter:
             self.world_time += self.dt
             self.update_scene()
           else:
-             # TODO need verifier for end_mode
              if 'end_mode' in self.scene and self.scene['end_mode'] == 'PAUSED':
                self.mode = 'PAUSED'
                self.world_time = self.max_sim_time
@@ -523,6 +535,8 @@ class VirgoControlCenter:
           initial_offset (list or None): Initial Position vector offset for
             camera following node. If not specified, one is calculated
             automatically
+        TODO: self.camera_follows must be set before this function is called
+           which is wonky. Need to move to this function doing everything it needs
         """
         # TODO: I don't like how we have a member called self.camera_follows and a
         # function of nearly the same name, mostly in that we have to assign self.camera_follows
@@ -629,6 +643,22 @@ class VirgoControlCenter:
         return None
 
     @virgo_console
+    def list(self, thing):
+        """List things in the scene: actors, frames, vectors"""
+        import pprint
+        text = f"Unknown thing to list: {thing}. Try 'actors', 'vectors', 'frames'"
+        if thing == 'help':
+            return text
+        if thing == 'actors':
+            text = pprint.pformat(list(self.actors.keys()))
+        elif thing == 'frames':
+            text = pprint.pformat(list(self.frames.keys()))
+        elif thing == 'vectors':
+            text = pprint.pformat(list(self.vectors.keys()))
+        return text
+
+
+    @virgo_console
     def toggle_node_labels(self):
         """Turn on/off node labels"""
         for n in self.nodes:
@@ -719,14 +749,50 @@ class VirgoControlCenter:
                 if self.verbosity > 1:
                     print(f'Showing axes for {n}')
 
+    @virgo_console
+    def camera(self, action, *args):
+        """Camera commands:
+        ex: camera follow <actor>
+        """
+        help = ("Usage: camera <action> <args>\nExamples:\n"
+        "  camera follow <actor_name>\n"
+        "  camera free"
+        )
+        if action == 'help':
+            return help
+        if action == 'follow':
+            if len(args) != 1:
+                return('too many args to \'camera follow\', give one node name')
+            if args[0] in self.nodes:
+                self.camera_follows = self.nodes[args[0]]
+                self.camera_follow(self.camera_follows)
+                return(f"camera now following {args[0]}")
+        if action == 'free':
+            self.camera_follows = None
+            return(f"camera now free")
+
+        return help
+
     def toggle_camera_modes(self):
+        """
+        If we're already following a node, free the camera
+        If we're already free, change the node we follow to the picked node or
+        last picked node if no node is picked. If no last node is picked
+        the camera will remain free forever.
+
+        TODO: This function is kinda funky and is called from a keypress by the
+        user, originally written before the virgo console existed.  Probably
+        should consolidate this with the camera() function that can be called
+        from the virgo console. -Jordan 1/2026
+        """
         # If we're already following a node, free the camera
         if self.camera_follows:
             if self.picked_actor:
                 self.camera_follow( self.nodes[self.picked_actor.name] )
             else:
                 self.camera_follows = None
-        # Otherwise change the node we follow to the picked node
+        # Otherwise change the node we follow to the picked node or last
+        # picked node if no node is picked
         else:
             if self.picked_actor:
                 self.camera_follows = self.picked_actor
@@ -969,6 +1035,9 @@ class VirgoControlCenter:
         If paused and at the end of the sim, reset world time
         to the world time start
         """
+        # If there is no time in this scene, do nothing
+        if self.timeless:
+            return
         if self.mode == 'PAUSED':
             self.mode = 'PLAYING'
             if math.isclose(self.world_time, self.max_sim_time):
@@ -1063,16 +1132,16 @@ class VirgoControlCenter:
         # If the camera is setup to follow a node/actor, save that node in
         # self.camera_follows and pass that node into the Interactor so
         # it can track camera information relative to an actor
-        if 'camera' in self.scene:
+        if 'camera' in self.scene and self.scene['camera'] != None:
           initial_camera_pos = None
-          if 'position' in self.scene['camera']:
+          if 'position' in self.scene['camera'] and self.scene['camera']['position'] != None:
             initial_camera_pos = self.scene['camera']['position']
             self.cameras['foreground'].SetPosition(initial_camera_pos )
-          if 'focal_point' in self.scene['camera']:
+          if 'focal_point' in self.scene['camera'] and self.scene['camera']['focal_point'] != None:
             self.cameras['foreground'].SetFocalPoint(self.scene['camera']['focal_point'])
-          if 'view_up' in self.scene['camera']:
+          if 'view_up' in self.scene['camera'] and self.scene['camera']['view_up'] != None:
             self.cameras['foreground'].SetViewUp(self.scene['camera']['view_up'])
-          if 'follow' in self.scene['camera']:
+          if 'follow' in self.scene['camera'] and self.scene['camera']['follow'] != None:
             for node in self.nodes:
               if self.nodes[node].name == self.scene['camera']['follow']:
                 self.camera_follows = self.nodes[node]
@@ -1083,11 +1152,12 @@ class VirgoControlCenter:
               msg = (f"ERROR: Camera cannot follow {self.scene['camera']['follow']}, actor/node not found!")
               raise RuntimeError (msg)
 
-        # NearClippingPlaneTolerance IS CRITICAL, SMALLER NUMBERS (0.00001) MAKE
-        # THE BACKGROUND SKYBOX STARS WIGGLE BUT LARGER NUMBERS (0.0001) MAKE
-        # SMALLER ACTORS NOT VISIBLE DUE TO CLIPPING.
-        if 'camera' in self.scene and 'near_clipping_plane_tolerance' in self.scene['camera']:
-            self.near_clipping_plane_tolerance = float(self.scene['camera']['near_clipping_plane_tolerance'])
+          # NearClippingPlaneTolerance IS CRITICAL, SMALLER NUMBERS (0.00001) MAKE
+          # THE BACKGROUND SKYBOX STARS WIGGLE BUT LARGER NUMBERS (0.0001) MAKE
+          # SMALLER ACTORS NOT VISIBLE DUE TO CLIPPING.
+          if ('near_clipping_plane_tolerance' in self.scene['camera'] and 
+              self.scene['camera']['near_clipping_plane_tolerance'] != None):
+              self.near_clipping_plane_tolerance = float(self.scene['camera']['near_clipping_plane_tolerance'])
         self.renderers['foreground'].SetNearClippingPlaneTolerance(self.near_clipping_plane_tolerance)
 
     def increase_near_clipping_plane_tolerance(self, multiplier=2.0):
@@ -1110,7 +1180,8 @@ class VirgoControlCenter:
         """
         Set configurable parameters for the picker
         """
-        if 'picker' in self.scene and 'tolerance' in self.scene['picker']:
+        if 'picker' in self.scene and  self.scene['picker'] != None:
+          if 'tolerance' in self.scene['picker'] and self.scene['picker']['tolerance'] != None:
             self.picker_tolerance = float(self.scene['picker']['tolerance'])
         self.picker.SetTolerance(self.picker_tolerance)
 
@@ -1302,11 +1373,14 @@ class VirgoControlCenter:
         """
         sun_scale=1.0
         if 'sun' in self.scene and self.scene['sun'] != None:
-          if 'direction' in self.scene['sun']:
+          if ('direction' in self.scene['sun'] and
+              self.scene['sun']['direction'] != None):
             self.sun_direction = self.scene['sun']['direction']
-          if 'scale' in self.scene['sun']:
+          if ('scale' in self.scene['sun'] and 
+              self.scene['sun']['scale'] != None):
             sun_scale = self.scene['sun']['scale']
-          if 'driven_by' in self.scene['sun']:
+          if ('driven_by' in self.scene['sun'] and
+               self.scene['sun']['driven_by'] != None):
             n = self.scene['sun']['driven_by']
             self.sun_driven_by = self.get_node(n)
             if not self.sun_driven_by:
@@ -1343,6 +1417,9 @@ class VirgoControlCenter:
         self.sun_actor.SetPickable(False)
         self.sun_actor.SetScale(sun_scale, sun_scale, sun_scale)
         self.sun_distance = 1.4959e11
+        # If the user didn't specify a sun, hide the sphere
+        if self.scene['sun'] == None:
+            self.sun_actor.SetVisibility(False)
 
         self.position_sun_actor(None, None)
 
@@ -1357,7 +1434,8 @@ class VirgoScene:
     interactor_class: Type[vtkInteractorStyle] = VirgoInteractorStyle
 
     def __init__(self, scene, verbosity=1, headless=False, stop_time=None,
-                 images_dir="/tmp/", video_filename="/tmp/virgo.mp4", splash=True,
+                 images_dir="/tmp/", video_filename="/tmp/virgo.mp4",
+                 splash=True, scene_yaml_path=None,
                  controller_class: Optional[Type[VirgoControlCenter]] = None,
                  controller_kwargs: Optional[Dict[str, Any]] = None,
                  interactor_class: Optional[Type[vtkInteractorStyle]] = None,
@@ -1374,6 +1452,8 @@ class VirgoScene:
         self.scene = scene # Dict of scene info from YAML file
         self.verbosity = verbosity
         self.splash = splash
+        # Optional path to the YAML file associated with self.scene
+        self.scene_yaml_path = scene_yaml_path
         self.headless = headless
         # TODO: consider using stop_time in interactive mode as well
         self.stop_time = stop_time  # For headless mode, stop at this time
@@ -1381,7 +1461,6 @@ class VirgoScene:
         self.video_filename = video_filename
         self.fs = 14      # font size
         self.max_sim_time = 0.0
-        self.vdl = None    # VDL: Virgo Data Loader
         self._verify_scene()
         self.nodes = {}    # Scene graph dict of VirgoSceneNode instances
 
@@ -1491,25 +1570,12 @@ class VirgoScene:
 
     def _verify_scene(self):
         """
-        TODO: Call a dict verifier here, similar to TrickWorkflowYamlVerifier
+        Call the VirgoDictVerifier to ensure the given scene dictionary
+        is a valid schema
         """
-        # This needs to move to a dict verifier but for now this check is critical
-        # so do it! No duplicate names across node-like instances, meaning actors:
-        # vectors: and frames: must be unique across all three sets
-        x = []
-        if 'actors' in self.scene:
-            x.append(self.scene['actors'])
-        if 'frames' in self.scene:
-            x.append(self.scene['frames'])
-        if 'vectors' in self.scene:
-            x.append(self.scene['vectors'])
-        all_nodelike_names =  [k for d in x for k in d]
-        if len(all_nodelike_names) != len(set(all_nodelike_names)):
-            duplicates = {k for k in all_nodelike_names if all_nodelike_names.count(k) > 1}
-            msg = (f"Duplicate names detected: {duplicates}. There can be no identical "
-                  f"names across all actors: frames: and vectors: dicts. Rename and try "
-                  f"again.")
-            raise RuntimeError(msg)
+        from VirgoDictVerifier import VirgoDictVerifier
+        vdv = VirgoDictVerifier(scene_dict=self.scene, yaml_file=self.scene_yaml_path)
+        self.scene = vdv.verify()
 
     def create_actor(self, actor_name, actor_scene_dict=None,):
         """
@@ -1551,7 +1617,7 @@ class VirgoScene:
 
         actor.SetScale(scale)
         actor.GetProperty().SetOpacity(opacity)
-        if 'color' in actor_scene_dict:
+        if 'color' in actor_scene_dict and actor_scene_dict['color'] != None:
             actor.GetProperty().SetColor(actor_scene_dict['color'])
         if 'pickable' in actor_scene_dict and actor_scene_dict['pickable'] == 0:
             actor.PickableOff()
@@ -1626,19 +1692,21 @@ class VirgoScene:
         if 'labels' in actor_scene_dict:
           labels = actor_scene_dict['labels']
           for label in labels:
+            if labels[label] == None:
+                continue
             position = [0.0, 0.0, 0.0]
             ypr = [0.0, 0.0, 0.0]
             scale = 0.3
             color = [1.0, 1.0, 1.0]
-            if 'text' in labels[label]:
+            if 'text' in labels[label]  and labels[label]['text'] != None:
               text = labels[label]['text']
-            if 'pos' in labels[label]:
+            if 'pos' in labels[label]  and labels[label]['pos'] != None:
               position = labels[label]['pos']
-            if 'scale' in labels[label]:
+            if 'scale' in labels[label]  and labels[label]['scale'] != None:
               scale = labels[label]['scale']
-            if 'ypr' in labels[label]:
+            if 'ypr' in labels[label]  and labels[label]['ypr'] != None:
               ypr = labels[label]['ypr']
-            if 'color' in labels[label]:
+            if 'color' in labels[label]  and labels[label]['color'] != None:
               color = labels[label]['color']
             # Add the label to the node
             node.add_label(name=label, text=text, position=position, ypr=ypr, scale=scale, color=color)
@@ -1696,8 +1764,9 @@ class VirgoScene:
         """
         nodes_to_add = []
         frames = {}
-        if 'frames' in self.scene:
+        if 'frames' in self.scene and self.scene['frames'] != None:
           for f in self.scene['frames']:
+            frames[f] = {} # Frames have no actor
             node, parent_name = self.create_node(actor=None,
                                 actor_scene_dict=self.scene['frames'][f],
                                 _class=fncc)
@@ -1715,7 +1784,7 @@ class VirgoScene:
 
         actors = {}
         trail_actors = {}
-        if 'actors' in self.scene:
+        if 'actors' in self.scene and self.scene['actors'] != None:
           for a in self.scene['actors']:
             actors[a] = self.create_actor(actor_name=a, actor_scene_dict=self.scene['actors'][a])
             actors[a].initialize()
@@ -1729,7 +1798,7 @@ class VirgoScene:
                 trail_actors[a] = trail_actor
 
         vectors = {}
-        if 'vectors' in self.scene:
+        if 'vectors' in self.scene and self.scene['vectors'] != None:
           for v in self.scene['vectors']:
             vectors[v] = self.create_vector(vector_name=v, vector_scene_dict=self.scene['vectors'][v])
             vectors[v].initialize()

@@ -135,7 +135,6 @@ class VirgoSceneNodeTestCase(VisualizableTestCase):
         Make an empty offset node and parent a teapot to it
         """
         self.node0.set_pose(pos=[1.0, 0.0, 0.0])  # Empty node, offset 1.0 in x-dir
-        self.node0.set_static = True
         self.node0.add_child(self.node1)
         self.node1.set_pose(pos=(1.0, 0.0, 0.0))  # Child node, another 1.0 in x-dir
 

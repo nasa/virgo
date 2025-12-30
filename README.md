@@ -12,14 +12,14 @@ VIRGO intends to be an extensible, well-tested, and robustly documented python m
 The simplest data source supported is a typical `*.csv`  (comma-separated-value) text file containing a time history of object positions in 3D space. For example, imagine you had a file `log_state.csv` that describes the motion of a satellite in space and looks like this:
 
 ```csv
-time (s),  position[0] (m),  position[1] (m),  position[2] (m),
+time {s},  position[0] {m},  position[1] {m},  position[2] {m},
      0.0,              0.0,              0.0,              0.0, 
      1.0,              5.0,              5.0,              5.0, 
      2.0,             10.0,             10.0,             10.0, 
      3.0,             20.0,             20.0,             20.0, 
      4.0,             30.0,             30.0,             30.0, 
 ```
-The first line describes what the variables are and their `(units)`. All other lines provide monotonically increasing time values and position values at those times.  VIRGO can read this file and playback the position of the object described by the `position` array over the timeframe 0.0 - 4.0 seconds. In this example the x-position is `position[0]`, y-position is `position[1]`, and z-position is `position[2]` . In VIRGO terminology this file is considered a simple **data source**.
+The first line describes what the variables are and their `{units}`. All other lines provide monotonically increasing time values and position values at those times.  VIRGO can read this file and playback the position of the object described by the `position` array over the timeframe 0.0 - 4.0 seconds. In this example the x-position is `position[0]`, y-position is `position[1]`, and z-position is `position[2]` . In VIRGO terminology this file is considered a simple **data source**.
 
 The **scene** defines what **actors** (the rendered objects) look like and links that object to a **data source**. VIRGO defines scenes using python dictionaries which are easily expressed as YAML files that look like this:
 
@@ -140,6 +140,7 @@ Details TBD
 
 Standalone examples can be found under the `examples/` directory.  See each directory's `README.md` for more detailed information.
 
+* `hello_cube/` - A very simple static scene showing non-moving cubes used to demonstrate the basics of VIRGO scene navigation.
 * `satellite/` - A simple cube satellite in an equatorial orbit. This example shows how RCS jets firing can be visualized in a scene.
 * `entry/` - A cube satellite entering earth atmosphere and landing in the ocean. This scene provides an example of how the VIRGO framework can be extended with custom functionality.
 * `pendulums/` - A two-pendulum example demonstrating how VIRGO can consume data logged at multiple rates for each actor in a scene.
@@ -165,6 +166,9 @@ background_color:  # Optional list of 3 floats between 0.0-1.0 defining the
 highlight_color:   # Optional list of 3 floats between 0.0-1.0 defining the
                    #   [red, green, blue] values of the color actors/vectors
                    #   should show when picked/highlighted
+hud_color:         # Optional list of 3 floats between 0.0-1.0 defining the
+                   #   [red, green, blue] values of the color of the Heads-
+                   #   Up-Display (text around the screen)
 playback_speeds:   # Optional list of floats defining the playback speeds
                    #   supported by this scene. Ex: [1.0, 2.0, 10.0]
 playback_speed:    # Optional float defining the default playback speed of
@@ -254,6 +258,8 @@ actors:     # The dictionary which holds all actors in the scene. The
                  #   shown below which references data_source aliases defined
                  #   above
       time: time    # Required time: key. It is linked to the time: alias above
+                    # At least one of the following driven_by parameters must
+                    # be given in addition to time:
       pos: sat_pos  # The pos: key represents this actor's position. It is linked
                     #   to the sat_pos alias defined above, meaning the satellite
                     #   actor's position will be driven by the sat_pos alias in
@@ -263,6 +269,11 @@ actors:     # The dictionary which holds all actors in the scene. The
                     #   transformation of a vector expressed in the parent: frame
                     #   to this actor's frame.  For those using JEOD, you want
                     #   this to link to an appropriate T_parent_this alias.
+      scale: <alias> # The scale: key represents this actor's size. This must
+                     #   be linked to a data_source alias floating point value 
+      opacity: <alias> # The opacity: key represents this actor's opacity. This
+                       #   must be linked to a data_source alias floating point
+                       #   value 
     labels:   # The labels: sub-dict defines text that is rendered in the 3D
               #   scene. These can be static text or reference data_source aliases.
               #   There is no limit to the number of labels an actor can have.
@@ -324,7 +335,7 @@ vectors:    # The dictionary which holds all vectors in the scene. A vector is
                     #   located at world coordinate origin. Tip: use scale: to
                     #   make the vector appear larger in the scene
 
-lighting:        # The dictionary which holds all lighting configuration
+lighting:        # Optional dictionary which holds all lighting configuration
   start_mode:    # Optional lighting mode the scene should start with. 
                  #   Valid options are: realistic, headlight, ultrabright
   dark_ambient:  # Optional float between 0-1 describing the ambient light
@@ -336,8 +347,8 @@ lighting:        # The dictionary which holds all lighting configuration
                    #   lighting is enabled. 0.0 is pure black, 1.0 is full
                    #   bright. Defaults to 0.7
 
-sun:          # The dictionary which holds information about the sun such
-              #   as the direction it should be rendered in the scene
+sun:          # Optional dictionary which holds information about the sun
+              #   such as the direction it should be rendered in the scene
   direction:  # Optional list of 3 floats describing a unit vector [x,y,z]
               #   pointing towards the sun expressed in world coordinates
   driven_by:  # Optional actor, frame, or vector name that the sun's position
@@ -345,23 +356,31 @@ sun:          # The dictionary which holds information about the sun such
               #   a vector: that is configured to point at the sun via it's
               #   own driven_by: sub-dict
 
-camera:       # The dictionary which holds information about the camera
+camera:       # Optional dictionary which holds information about the camera
+  position:   # Optional list of 3 floats describing the initial location of
+              #   the camera. If follow is given this is specified relative
+              #   to the followed node, otherwise relative to world coords
+  focal_point: # Optional list of 3 floats describing the initial point in
+               #   space the camera should look at. Only valid when follow not
+               #   given as followed nodes are the focal point automatically
+  view_up:    # Optional list of 3 floats describing the direction for the
+              #   camera's +Z axis. This defines the camera's up direction
   follow:     # Optional name of actor the camera should follow when the scene
               #   starts. If follow: given, it's value must be the key of a
               #   actor, vector, or frame defined in the scene
   near_clipping_plane_tolerance: # Optional float describing the VTK foreground
-                                 # camera's # Near Clipping Plane Tolerance.
+                                 # camera's  Near Clipping Plane Tolerance.
                                  # This trades small actor visiblity with risk
-                                 # of # Z-fighting for far away actors. Defaults
+                                 # of Z-fighting for far away actors. Defaults
                                  # to 0.00005 and can be adjusted with j/k in
                                  # the interactive window
 
-picker:       # The dictionary which holds information about the picker
+picker:       # Optional dictionary which holds information about the picker
   tolerance:  # Optional float threshold for picking (right click) actors
               #   Defaults to 5e-7 and can be adjusted with J/K in the
               #   interactive window
 ```
-It's worth noting that **in this VIRGO alpha release strict error checking on the fields described above is still a work-in-progress** so you should expect strange error messages if entering unexpected types in these dictionary fields.
+It's worth noting that **in this VIRGO alpha release error checking on the fields described above is still a work-in-progress** so there may be strange error messages if entering unexpected types in these dictionary fields.
 
 Custom sections of the dictionary can be defined by users for any purpose they wish as long as they don't conflict with what VIRGO expects in the section above.  
 

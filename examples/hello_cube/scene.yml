@@ -1,0 +1,24 @@
+name: VIRGO Hello Cube Example
+description: |
+    This scene visualizes a cube and provides the smallest example
+    possible of a VIRGO scene. Press 'h' to toggle help to understand
+    how to control and navigate the scene
+background_color: [0.4, 0.4, 0.4] # gray background color
+# The list of actors in this scene - two cubes
+actors:
+  green_cube:
+    mesh: VIRGO_PREFAB:cube
+    color: [0.133, 0.408, 0.173]   # Color this cube 'virgo green'
+  # Note that the red_cube's position is offset in the scene
+  # via set_pose() in initialization,see hello_cube.py
+  red_cube:
+    mesh: VIRGO_PREFAB:cube
+    scale: 1.5               # Make this cube 1.5 units in size
+    color: [1.0, 0.0, 0.0]   # Color this cube red
+camera:
+  # Initial position of camera in scene, since follow: is defined this is
+  # relative to the green_cube actor
+  position:    [0.0, -5.0, 3.0]
+  focal_point: [0.0, 0.0, 0.0]  # Where the camera looks initially
+  view_up: [0.0, 0.0, 1.0]      # Direction of up for the camera: +Z
+  follow: green_cube            # Optional, follow the green_cube actor

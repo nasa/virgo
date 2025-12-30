@@ -29,6 +29,7 @@ class SatelliteExample:
         # VirgoDataPlayback is the VirgoScene we want because it's built
         # to consume TrickPy-compatible data, which log_Satellite.csv meets
         self.v = VirgoDataPlayback(run_dir=args.data_dir, scene=scene,
+                                    scene_yaml_path=args.scene_config,
                                     headless=args.headless,
                                     video_filename=args.video_filename)
         self.v.initialize()

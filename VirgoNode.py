@@ -103,7 +103,7 @@ class VirgoSceneNode():
         self.children = []
 
         self.data_source = None
-        self.static = False
+        self.static = True
 
         # Trail related members
         self._trail_points = None
@@ -182,7 +182,7 @@ class VirgoSceneNode():
         change it's color as well.
         """
         self.highlight_color = color
-        if self.silhouette_actor:
+        if self.silhouette_actor and self.highlight_color:
             self.silhouette_actor.GetProperty().SetColor(
                 self.highlight_color[0], self.highlight_color[1], self.highlight_color[2])
 
@@ -246,11 +246,8 @@ class VirgoSceneNode():
         return self.labels[name]
 
 
-    def set_static(self, value=True):
-        self.static = value
-
     def is_static(self):
-        return self.static
+        return (self.data_source is None)
 
     def set_data_source(self, data_source):
         """

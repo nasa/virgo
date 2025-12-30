@@ -8,12 +8,14 @@ class VirgoHud:
     associated with overlays.  This includes information about picked actors,
     world time, playback mode, camera/lighting, etc.
     """
-    def __init__(self, render_window, renderers, text_actors, nodes):
+    def __init__(self, render_window, renderers, text_actors, nodes, color=[1.0, 1.0, 1.0]):
         # References to structures provided by VirgoControlCenter
         self.render_window = render_window
         self.renderers = renderers
         self.text_actors = text_actors
         self.nodes = nodes
+        self.color = color
+        self.set_color(self.color)
         # Will be copied once per configure() call from the calling class
         self.mode = None
         self.camera_follows = None
@@ -27,6 +29,10 @@ class VirgoHud:
         self.lighting_mode = None
         self.help = None
         self.version = self.get_version()
+
+    def set_color(self, color):
+        for ta in self.text_actors:
+            self.text_actors[ta].GetTextProperty().SetColor(color[0], color[1], color[2])
 
     def get_version(self):
         version="UNKNOWN"
@@ -159,7 +165,7 @@ class VirgoHud:
                 f"\n l: Toggle Lighting Mode"
                 f"\n L: Toggle Node Label Visibility"
                 f"\n v: Print picked node info in terminal"
-                f"\n BackSpace: Toggle starfield (experimental)"
+                f"\n BackSpace: Toggle starfield"
                 f"\n h: Toggle this help message"
                 f"\n j/k: Near Plane Clipping Tolerance"
                 f"\n J/K: Picker Tolerance"

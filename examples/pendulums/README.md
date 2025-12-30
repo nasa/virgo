@@ -9,3 +9,9 @@ This directory provides an example of VIRGO rendering simulated pendulums. The e
 Please take a look at these files as there's extensive comments explaining the configuration.
 
 The pendulum position is the only part simulated and rendered, not it's orientation. You can see this by pressing 'a' to see the actor axes when the script runs. **TODO Add more info here. I think this example is perfect for a VIRGO tutorial as we can have the user start with one pendulum and slowly build up to the configuration you see in this directory today**
+
+# Tutorial
+
+## Driving the sun with a `vector:`
+
+TBD example of uncommenting `sun: driven_by: rope1` goes here. This shows how the position of hte sun light can be driven by a vector in the scene.

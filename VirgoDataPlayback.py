@@ -13,16 +13,20 @@ class VirgoDataPlayback(VirgoScene):
     the  trickpy: and driven_by: clauses of the scene dict
     """
     def __init__(self, run_dir, scene, verbosity=1, headless=False,
-                 images_dir="/tmp/", video_filename="/tmp/virgo.mp4", splash=True,
+                 images_dir="/tmp/", video_filename="/tmp/virgo.mp4",
+                 splash=True, scene_yaml_path=None,
                  _class_controller=VirgoControlCenter,
                  _class_interactor_style=VirgoInteractorStyle):
+        self.run_dir = run_dir
+        self.vdl = None
         super().__init__(scene=scene, verbosity=verbosity, headless=headless,
-                         images_dir=images_dir, video_filename=video_filename, splash=splash,
+                         images_dir=images_dir, video_filename=video_filename,
+                         splash=splash, scene_yaml_path=scene_yaml_path,
                          _class_controller=_class_controller,
                          _class_interactor_style=_class_interactor_style)
-        self.run_dir = run_dir
-        # TODO: this check on 'data_source':'trickpy' existence might be
-        # better done elsewhere but leaving it here for now
+
+    def _verify_scene(self):
+        super()._verify_scene()
         #import pdb; pdb.set_trace()
         if 'data_source' in self.scene and 'trickpy' in self.scene['data_source']:
             self.vdl = VirgoTrickpyFileLoader(run_dir=self.run_dir, 
@@ -64,20 +68,18 @@ class VirgoDataPlayback(VirgoScene):
         times = None
         driven_by = None
         additional_data={}
-        if 'driven_by' in actor_scene_dict:
+        if 'driven_by' in actor_scene_dict and actor_scene_dict['driven_by'] != None:
             driven_by= dict(actor_scene_dict['driven_by']) # make a copy
-            if 'time' in driven_by:
+            if 'time' in driven_by and  driven_by['time'] != None:
                 times = self.vdl.get_alias_datas(alias=driven_by['time'])
-            if 'pos' in driven_by:
+            if 'pos' in driven_by and  driven_by['pos'] != None:
                 positions= self.vdl.get_alias_datas(alias=driven_by['pos'])
-            if 'rot' in driven_by:
+            if 'rot' in driven_by and  driven_by['rot'] != None:
                 rotations = self.vdl.get_alias_datas(alias=driven_by['rot'])
-            if 'scale' in driven_by:
+            if 'scale' in driven_by and  driven_by['scale'] != None:
                 scales = self.vdl.get_alias_data(alias=driven_by['scale'])
-            if 'opacity' in driven_by:
+            if 'opacity' in driven_by and  driven_by['opacity'] != None:
                 opacities = self.vdl.get_alias_data(alias=driven_by['opacity'])
-        else:
-            node.set_static(True)
 
         if ('provide_aliases' in actor_scene_dict and 
             isinstance(actor_scene_dict['provide_aliases'], list)):
@@ -103,6 +105,8 @@ class VirgoDataPlayback(VirgoScene):
         if 'labels' in actor_scene_dict:
             labels = actor_scene_dict['labels']
             for label in labels:
+                if labels[label] == None:
+                    continue
                 # TODO: can we just node.get_label(label).get_text() here instead?
                 if 'text' in labels[label]:
                   text = labels[label]['text']

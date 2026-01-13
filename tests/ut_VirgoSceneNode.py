@@ -142,7 +142,7 @@ class VirgoSceneNodeTestCase(VisualizableTestCase):
         self.node1.show_axes()
         #self.vis(actors=self.node0.assembly, show_origin=1, show_grid=1)
 
-    def test_ypr_90_90_90(self):
+    def test_set_pose_ypr_90_90_90(self):
         """
         Do a more complicated yaw-pitch-roll maneuver Rotate a teapot (90,90,90)
         in yaw-pitch-roll which is an Z-Y-X Tait Bryan Euler rotation. The
@@ -166,7 +166,7 @@ class VirgoSceneNodeTestCase(VisualizableTestCase):
 
         #self.vis(actors=self.node1.assembly, show_origin=1, show_grid=1)
 
-    def test_ypr_90_neg90_0(self):
+    def test_set_pose_ypr_90_neg90_0(self):
         """
         Do a more complicated yaw-pitch-roll maneuver Rotate a teapot (90,-90,0)
         in yaw-pitch-roll which is an Z-Y-X Tait Bryan Euler rotation. The
@@ -191,7 +191,7 @@ class VirgoSceneNodeTestCase(VisualizableTestCase):
 
         #self.vis(actors=self.node1.assembly, show_origin=1, show_grid=1)
 
-    def test_ypr_neg90_neg180_neg90(self):
+    def test_set_pose_ypr_neg90_neg180_neg90(self):
         """
         Do a more complicated yaw-pitch-roll maneuver Rotate a teapot 
         (-90,-180,-90) in yaw-pitch-roll which is an Z-Y-X Tait Bryan Euler
@@ -216,7 +216,7 @@ class VirgoSceneNodeTestCase(VisualizableTestCase):
 
         #self.vis(actors=self.node1.assembly, show_origin=1, show_grid=1)
 
-    def test_ypr_180_90_90(self):
+    def test_set_pose_ypr_180_90_90(self):
         self.node1.set_pose(ypr=(180.0, 90.0, 90.0))
         self.node1.show_axes()
         mat = self.node1.local_transform.GetMatrix()
@@ -234,3 +234,11 @@ class VirgoSceneNodeTestCase(VisualizableTestCase):
         #self.node1.silhouette_polydata.SetCamera(self.camera)
         #self.vis(actors=self.node1.assembly, show_origin=1, show_grid=1)
 
+
+    def test_offset_ypr_90_0_0(self):
+        self.teapot1 = VirgoActor(name='teapot1', mesh=os.path.join(meshes_dir, 'teapot.obj'),
+                                  offset_ypr=[90, 0, 0] 
+                                  )
+        self.teapot1.initialize()
+        # Visually confirmed here, TODO: need test criteria
+        #self.vis(actors=self.teapot1, show_origin=1, show_grid=1)

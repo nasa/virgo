@@ -39,8 +39,6 @@ data_source:
 
 frames:
   center_of_buoyancy: # A frame defined for where green_ball attaches
-    #pos:   [0.0, 0.0, 0.0]  # position in scene, no offset
-    #ypr:   [0.0, 0.0, 0.0]  # 
     axes: 
       when: always     # always, never, picked, or toggled
       style: cylinder  # cylinder or line

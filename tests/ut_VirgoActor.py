@@ -45,7 +45,8 @@ class VirgoActorTestCase(VisualizableTestCase):
         self.instance.initialize()
         self.assertEqual(self.instance.name, 'No Name')
         self.assertEqual(self.instance.offset_ypr, [45, 0, 0])
-        for i, (a, b) in enumerate(zip(self.instance.GetOrientation(), [45.0, 0.0, 0.0])):
+        # Note that GetOrientation returns X,Y,Z but offset_ypr is Z,Y,X
+        for i, (a, b) in enumerate(zip(self.instance.GetOrientation(), [0.0, 0.0, 45.0])):
             self.assertAlmostEqual(a, b)
 
     def test_init_with_pos_offset(self):
@@ -72,13 +73,12 @@ class VirgoActorTestCase(VisualizableTestCase):
                                                offset_pos=[0, 1, 0],
                                                offset_ypr=[-45, 0, 0])
         self.instance.initialize()
-        #import pdb; pdb.set_trace()
         self.assertEqual(self.instance.name, 'No Name')
-        #self.assertAlmostEqual(self.instance.GetPosition()[0], 1.0)
         self.assertEqual(self.instance.offset_pos, [0, 1, 0])
         for i, (a, b) in enumerate(zip(self.instance.GetPosition(), [0.0, 1.0, 0.0])):
             self.assertAlmostEqual(a, b)
-        for i, (a, b) in enumerate(zip(self.instance.GetOrientation(), [-45.0, 0.0, 0.0])):
+        # Note that GetOrientation returns X,Y,Z but offset_ypr is Z,Y,X
+        for i, (a, b) in enumerate(zip(self.instance.GetOrientation(), [0.0, 0.0, -45.0])):
             self.assertAlmostEqual(a, b)
         #self.vis(actors=self.instance, show_origin=1, show_grid=1)
 

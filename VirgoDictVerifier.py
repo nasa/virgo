@@ -156,6 +156,7 @@ class LabelSchema(BaseModel):
 class ActorBaseSchema(BaseModel):
     # --- Optional geometry ---
     scale: float = 1.0
+    opacity: float = 1.0
     pos: Vec3 = [0.0, 0.0, 0.0]
     ypr: Vec3 = [0.0, 0.0, 0.0]
     color: Optional[RGBColor] = None

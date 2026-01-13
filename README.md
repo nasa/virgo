@@ -240,7 +240,6 @@ actors:     # The dictionary which holds all actors in the scene. The
       affect_opacity: # Optional bool (0 or 1) setting for whether opacity
                       #   of the actor should be reduced when axes are shown.
                       #   Defaults to 1 (true).
-              #  [x_axis, y_axis, z_axis]
     trail:  # The dictionary which holds information about this actor's trail
       enabled:   # Integer 1 or 0 (true or false) for turning this trail on
                  #   when the interactive window starts

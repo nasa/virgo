@@ -101,9 +101,9 @@ class VirgoActor(vtkActor):
         # different rotation schemes
         if self.offset_ypr:
           # Apply the initial position/rotation to this object in Z-Y-X order
-          self.RotateZ(self.offset_ypr[2])
+          self.RotateZ(self.offset_ypr[0])
           self.RotateY(self.offset_ypr[1])
-          self.RotateX(self.offset_ypr[0])
+          self.RotateX(self.offset_ypr[2])
         self.verify()
 
     def verify(self):

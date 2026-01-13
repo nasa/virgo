@@ -159,21 +159,21 @@ actors:
     mesh: VIRGO_PREFAB:cone
     scale: 1.0
     pos: [0.0, 0.0, 0]
-    ypr: [0.0, 0.0, 90.0]  # Thrust in +Y
+    ypr: [90.0, 0.0, 0.0]  # Thrust in +Y
     color: [0.0, 1.0, 0.0]
     parent: RCS_T
   RCS_T3:
     mesh: VIRGO_PREFAB:cone
     scale: 1.0
     pos: [0.0, 0.0, 0]
-    ypr: [0.0, 0.0, 180.0]  # Thrust in -X
+    ypr: [180.0, 0.0, 0.0]  # Thrust in -X
     color: [1.0, 0.0, 0.0]
     parent: RCS_T
   RCS_T4:
     mesh: VIRGO_PREFAB:cone
     scale: 1.0
     pos: [0.0, 0.0, 0]
-    ypr: [0.0, 0.0, -90.0]  # Thrust in -Y
+    ypr: [-90.0, 0.0, 0.0]  # Thrust in -Y
     color: [0.0, 1.0, 0.0]
     parent: RCS_T
   RCS_R1:
@@ -215,21 +215,21 @@ actors:
     mesh: VIRGO_PREFAB:cone
     scale: 1.0
     pos: [0.0, 0.0, 0.0]
-    ypr: [0.0, 0.0, 90.0]  # Thrust in +Y
+    ypr: [90.0, 0.0, 0.0]  # Thrust in +Y
     color: [0.0, 1.0, 0.0]
     parent: RCS_B
   RCS_B3:
     mesh: VIRGO_PREFAB:cone
     scale: 1.0
     pos: [0.0, 0.0, 0.0]
-    ypr: [0.0, 0.0, 180.0]  # Thrust in -X
+    ypr: [180.0, 0.0, 0.0]  # Thrust in -X
     color: [1.0, 0.0, 0.0]
     parent: RCS_B
   RCS_B4:
     mesh: VIRGO_PREFAB:cone
     scale: 1.0
     pos: [0.0, 0.0, 0.0]
-    ypr: [0.0, 0.0, -90.0]  # Thrust in -Y
+    ypr: [-90.0, 0.0, 0.0]  # Thrust in -Y
     color: [0.0, 1.0, 0.0]
     parent: RCS_B
   RCS_L1:
@@ -266,7 +266,7 @@ actors:
     mesh: VIRGO_PREFAB:cylinder
     scale: 1.0
     pos: [1.5, 0.0, 0.0] # Offset in X to edge of RCS cone
-    ypr: [0.0, 0.0, 90.0]  # Thrust in +X
+    ypr: [90.0, 0.0, 0.0]  # Thrust in +X
     color: [0.9, 0.9, 0.0]
     opacity: 0.0
     parent: RCS_T
@@ -277,7 +277,7 @@ actors:
     mesh: VIRGO_PREFAB:cylinder
     scale: 1.0
     pos: [-1.5, 0.0, 0.0] # Offset in X to edge of RCS cone
-    ypr: [0.0, 0.0, 90.0]  # Thrust in +X
+    ypr: [90.0, 0.0, 0.0]  # Thrust in +X
     color: [0.9, 0.9, 0.0]
     opacity: 0.0
     parent: RCS_T

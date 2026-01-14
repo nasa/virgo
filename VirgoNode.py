@@ -55,6 +55,7 @@ class VirgoSceneNode():
         self.axes = None
         # Internal flag for if this node is currently picked
         self._currently_picked = False
+        self.transpose_dcm = True
 
         if axes:
             self.axes = self.create_axes()
@@ -175,6 +176,12 @@ class VirgoSceneNode():
         Set value of internally tracked currently picked flag
         """
         self._currently_picked = picked
+
+    def set_transpose_dcm(self, value=True):
+        """
+        Set value of internally tracked currently picked flag
+        """
+        self.transpose_dcm = bool(value)
 
     def set_highlight_color(self, color):
         """
@@ -299,7 +306,7 @@ class VirgoSceneNode():
                 self.report()
 
         # Pose the node with this data
-        self.set_pose(pos=pos, dcm=rot, scale=scale)
+        self.set_pose(pos=pos, dcm=rot, transpose_dcm=self.transpose_dcm, scale=scale)
 
         # if specified, adjust the opacity of the actor
         if opacity != None:
@@ -355,19 +362,39 @@ class VirgoSceneNode():
         print(f"==== END    VirgoSceneNode Report for Node {self.name} ===================")
 
         
-    def set_pose(self, pos=None, ypr=None, dcm=None, scale=None):
+    def set_pose(self, pos=None, ypr=None, dcm=None, transpose_dcm=True, scale=None):
         """
         Manipulate self.local_transform to provide position, rotation, and
-        scale adjustments to this Node's self.assembly
+        scale adjustments to this Node's self.assembly.
+
+        Args:
+          pos: X,Y,Z position vector describing where to move this node relative to
+               it's parent (or world coordinates if this node has no parent)
+          ypr: Yaw-Pitch-Roll ordered intrinsic Euler rotation to apply to this node
+          dcm: 3x3 Direction Cosine Matrix representing the rotation to be applied
+               to this node. This can be a list of lists but will be converted to
+               a numpy matrix in this function if it isn't already. Note that ypr
+               and dcm are mutually exclusive and only one can be specified.
+          transpose_dcm: Boolean for whether dcm should be transposed before passed
+               into VTK's matrix.SetElement() function. VTK expects active 
+               transformations but aerospace and robotics applications often provide
+               passive transformations to describe coordinate frame rotations. Set
+               to false if you are using active rotation matrices
         """
         if ypr is not None and dcm is not None:
             raise ValueError("Cannot specify both rot and dcm.")
+        # Ensure the given list is in numpy array form
+        if dcm is not None and not isinstance(dcm, np.ndarray):
+            dcm = np.array(dcm)
 
         self.local_transform.Identity()
         self.local_transform.PostMultiply()
 
         # If dcm is given, provide it and pos in a single transform
         if dcm is not None:
+            # Transpose the dcm making it an active rotation which VTK expects
+            if transpose_dcm:
+                dcm = dcm.T
             matrix = vtkMatrix4x4()
             matrix.Identity()
             for i in range(3):

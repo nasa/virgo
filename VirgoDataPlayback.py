@@ -80,6 +80,8 @@ class VirgoDataPlayback(VirgoScene):
                 scales = self.vdl.get_alias_data(alias=driven_by['scale'])
             if 'opacity' in driven_by and  driven_by['opacity'] != None:
                 opacities = self.vdl.get_alias_data(alias=driven_by['opacity'])
+            if 'transpose_rot' in driven_by and  driven_by['transpose_rot'] != None:
+                node.set_transpose_dcm(driven_by['transpose_rot'])
 
         if ('provide_aliases' in actor_scene_dict and 
             isinstance(actor_scene_dict['provide_aliases'], list)):

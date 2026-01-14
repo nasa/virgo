@@ -133,6 +133,8 @@ actors:
       time: time
       pos: sat_pos
       rot: sat_rot
+      # sat_rot is an active transformation, see VirgoSceneNode.set_pose()
+      transpose_rot: 0
     labels:
       name:
         color: [1.0, 1.0, 1.0]

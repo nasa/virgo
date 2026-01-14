@@ -174,6 +174,9 @@ class VirgoActor(vtkActor):
             # Earth radii: equatorial ~6378 km, polar ~6357 km
             scale_z = polar / equatorial
             self.SetScale(1.0, 1.0, scale_z)  # squash along Z
+            # Standard equirectangular images need 180 rotation to
+            # have earth align with ECEF frame
+            self.RotateZ(180)
         # Medium fidelity earth (for simulations not too close to the surface)
         elif 'VIRGO_PREFAB:earth' in str(mesh) or 'VIRGO_PREFAB:earth-300' in str(mesh):
             equatorial = 6378137.0
@@ -195,6 +198,9 @@ class VirgoActor(vtkActor):
             # Earth radii: equatorial ~6378 km, polar ~6357 km
             scale_z = polar / equatorial
             self.SetScale(1.0, 1.0, scale_z)  # squash along Z
+            # Standard equirectangular images need 180 rotation to
+            # have earth align with ECEF frame
+            self.RotateZ(180)
         elif 'VIRGO_PREFAB:moon8k' in str(mesh) :
             # Create a sphere source
             self.source = vtkTexturedSphereSource()

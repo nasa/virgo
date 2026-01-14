@@ -234,6 +234,66 @@ class VirgoSceneNodeTestCase(VisualizableTestCase):
         #self.node1.silhouette_polydata.SetCamera(self.camera)
         #self.vis(actors=self.node1.assembly, show_origin=1, show_grid=1)
 
+    def test_set_pose_dcm_identity(self):
+        """
+        Perform an identity dcm rotation on a node with set_pose() and ensure
+        it has no rotation
+        """
+        dcm = np.array([
+           [1.0, 0.0, 0.0],
+           [0.0, 1.0, 0.0],
+           [0.0, 0.0, 1.0]
+        ])
+        self.node1.set_pose(dcm=dcm)
+        self.node1.show_axes()
+        #self.vis(actors=self.node1.assembly, show_origin=1, show_grid=1)
+        mat = self.node1.local_transform.GetMatrix()
+
+        # The matrix we expect inside local_transform after this ypr rotation
+        expected_matrix = np.array([
+          [1.0, 0.0, 0.0, 0.0],
+          [0.0, 1.0, 0.0, 0.0],
+          [0.0, 0.0, 1.0, 0.0],
+          [0.0, 0.0, 0.0, 1.0],
+        ])
+        for i in range(4):
+          for j in range(4):
+            self.assertAlmostEqual(expected_matrix[i, j], mat.GetElement(i, j))
+
+    def test_set_pose_dcm_45_z(self):
+        """
+        Perform a 45 degree z rotation via passive dcm on a node with
+        set_pose() and ensure it has expected orientation. Passive transformations
+        are typical in aerospace and robotics but VTK expects active
+        transformations. This test ensures a passive dcm enters set_pose()
+        which is transposed internally and we can get the active version
+        of that dcm via GetMatrix
+        """
+        import math
+        cos45 = math.cos(math.radians(45))
+        sin45 = math.sin(math.radians(45))
+        dcm = np.array([
+           [cos45,  sin45, 0.0],
+           [-sin45, cos45, 0.0],
+           [0.0,      0.0, 1.0]
+        ])
+        self.node1.set_pose(dcm=dcm, transpose_dcm=True)
+        self.node1.show_axes()
+        #self.vis(actors=self.node1.assembly, show_origin=1, show_grid=1)
+        mat = self.node1.local_transform.GetMatrix()
+
+        # The matrix we expect inside local_transform after this dcm rotation
+        # Note the transpose since transpose_dcm=True above
+        expected_matrix = np.array([
+          [cos45, -sin45, 0.0, 0.0],
+          [sin45, cos45, 0.0, 0.0],
+          [0.0, 0.0, 1.0, 0.0],
+          [0.0, 0.0, 0.0, 1.0],
+        ])
+        for i in range(4):
+          for j in range(4):
+            self.assertAlmostEqual(expected_matrix[i, j], mat.GetElement(i, j))
+
 
     def test_offset_ypr_90_0_0(self):
         self.teapot1 = VirgoActor(name='teapot1', mesh=os.path.join(meshes_dir, 'teapot.obj'),

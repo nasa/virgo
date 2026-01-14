@@ -128,6 +128,7 @@ class ActorDrivenBySchema(BaseModel):
     rot: Optional[str] = None
     scale: Optional[str] = None
     opacity: Optional[str] = None
+    transpose_rot: Optional[bool] = True
 
     @model_validator(mode="after")
     def check_at_least_one_driver(self):

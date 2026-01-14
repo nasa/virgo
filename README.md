@@ -268,6 +268,12 @@ actors:     # The dictionary which holds all actors in the scene. The
                     #   transformation of a vector expressed in the parent: frame
                     #   to this actor's frame.  For those using JEOD, you want
                     #   this to link to an appropriate T_parent_this alias.
+      transpose_rot:  # Optional boolean 1 or 0, when enabled this will transpose
+                      #   the 3x3 matrix given by rot: before applying it in VTK.
+                      #   This can be helpful as aerospace/robotics tend to use
+                      #   passive transformations but VTK expects active 
+                      #   transformations. This should be 1 if your rotation
+                      #   matrix is a passive transformation. Defaults to 1.
       scale: <alias> # The scale: key represents this actor's size. This must
                      #   be linked to a data_source alias floating point value 
       opacity: <alias> # The opacity: key represents this actor's opacity. This

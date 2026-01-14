@@ -137,17 +137,19 @@ actors:
       transpose_rot: 0
     labels:
       name:
+        scale: 0.5
         color: [1.0, 1.0, 1.0]
         text: "Satellite: 1000 kg"
         pos: [2.0, 0.0, 0.0]
         ypr: [0.0, 0.0, 0.0]
       velocity:
+        scale: 0.5
         text: |
           Inertial velocity (m/s):
             x: {sat_vel[0]:<10.5f}
             y: {sat_vel[1]:<10.5f}
             z: {sat_vel[2]:<10.5f}
-        pos: [2.0, -0.5, 0.0]
+        pos: [2.0, -0.7, 0.0]
   # RCS Jet positions and force directions in the 
   # body frame taken from Satellite::initialize()
   RCS_T1:

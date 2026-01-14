@@ -235,6 +235,8 @@ class FrameSchema(ActorBaseSchema):
             raise ValueError('frames cannot have a mesh: field')
         if 'trail' in data:
             raise ValueError('frames cannot have a trail: field')
+        if 'trail' in data:
+            raise ValueError('frames cannot have a scale: field')
         return data
 
 class VectorSchema(ActorBaseSchema):

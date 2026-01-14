@@ -87,7 +87,7 @@ class VirgoActorTestCase(VisualizableTestCase):
         Test the VIRGO_PREFAB:moon option
         """
         self.instance = VirgoActor(mesh="VIRGO_PREFAB:moon8k")
-        #self.vis(actors=self.instance, show_origin=1, show_grid=1, oal=[3e6, 3e6, 3e6])
+        #self.vis(actors=self.instance, show_origin=1, oal=[3e6, 3e6, 3e6])
         # TODO assertions go here!
 
     def test_init_prefab_earth(self):
@@ -96,7 +96,27 @@ class VirgoActorTestCase(VisualizableTestCase):
         """
         self.instance = VirgoActor(mesh="VIRGO_PREFAB:earth")
         # TODO assertions go here!
-        #self.vis(actors=self.instance, show_origin=1, show_grid=1, oal=[1e7, 1e7, 1e7])
+        #self.vis(actors=self.instance, show_origin=1, oal=[1e7, 1e7, 1e7])
+
+    def test_init_prefab_earth_3000(self):
+        """
+        Test the VIRGO_PREFAB:earth-3000 option
+        """
+        self.instance = VirgoActor(mesh="VIRGO_PREFAB:earth-3000")
+        # TODO assertions go here!
+        #self.vis(actors=self.instance, show_origin=1, oal=[1e7, 1e7, 1e7])
+
+    def test_init_prefab_wgs84_earth(self):
+        """
+        Test the VIRGO_PREFAB:wgs84-earth option
+
+        TODO: there is something weird with visualizing this test. The earth is showing
+        up black even though it works in examples/launch/ and I swear I saw it work
+        partially in this test one time but never again -Jordan 2025
+        """
+        self.instance = VirgoActor(mesh="VIRGO_PREFAB:wgs84-earth")
+        # TODO assertions go here!
+        #self.vis(actors=self.instance, show_origin=1, show_grid=0, oal=[1e7, 1e7, 1e7])
 
     def test_init_prefab_arrow(self):
         """

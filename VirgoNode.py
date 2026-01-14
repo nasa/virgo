@@ -565,15 +565,15 @@ class VirgoSceneNode():
         return False
 
     def is_trail_visible(self):
-        if self._trail_actor:
+        if self.trail:
             return self.trail.is_visible()
 
     def hide_trail(self):
-        if self._trail_actor:
+        if self.trail:
             return self.trail.hide()
 
     def show_trail(self):
-        if self._trail_actor:
+        if self.trail:
             return self.trail.show()
 
     def hide_axes(self):

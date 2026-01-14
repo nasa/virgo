@@ -186,9 +186,10 @@ class VisualizableTestCase(unittest.TestCase):
         
         self.interactor.SetInteractorStyle(vtk.vtkInteractorStyleTrackballCamera())
         self.interactor.SetRenderWindow(self.render_window)
-        
+
         # Render and start interaction (blocks until window is closed)
         print(f"Visualizing {test_name}. Exit window (q) to continue.")
         self.renderer.ResetCamera()
+        self.renderer.SetBackground([0.5, 0.5, 0.5])
         self.render_window.Render()
         self.interactor.Start()

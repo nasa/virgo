@@ -1,0 +1,154 @@
+# Configuration file for VIRGO to consume related to this simulation configuration
+name: VIRGO rocket launch example
+description: |
+     This scene visualizes a simple launch vehicle ascending from KSC and
+     provides an example of using the high resolution WGS-84 earth and KSC patch
+     VIRGO_PREFAB actor for higher resolution at the ground.  The rocket is
+     built from several primitive cylinders, the capsule mesh from
+     examples/splashdown/, and a cone. The trajectory is a simplified launch
+     provided by a script written by AI and is expressed in a frame relative to
+     the launch pad. Note that orientation of the vehicle is not recorded to
+     the log_lv.csv file yet so no pitch-over is visible in the scene.
+start_mode: PAUSED
+end_mode: PAUSED
+background_color: [0.0, 0.0, 0.05]
+highlight_color: [1.0, 1.0, 0.0]
+playback_speeds: [1.0, 5.0, 10.0, 20.0, 50.0]
+playback_speed: 1.0
+resolution: 1280x720
+starfield: 1
+data_source:
+  trickpy:
+    time: 
+      group: lv
+      var: time
+    lv_pos: 
+      group: lv
+      var: pos[0-2]
+    lv_alt: 
+      group: lv 
+      var: altitude
+    earth_rot: 
+      group: lv
+      var: ECI_TO_ECEF[0-2][0-2]
+actors:
+  earth: 
+    mesh: VIRGO_PREFAB:wgs84-earth
+    scale: 1.0
+    pos:   [0.0, 0.0, 0.0]
+    ypr:   [0.0, 0.0, 0.0]
+    pickable: 0
+    parent: ecef_frame
+  KSC_pad_site: 
+    mesh: VIRGO_PREFAB:ksc-39b-patch
+    scale: 1.0
+    color: [0.4, 0.4, 0.4]
+    # ECEF vector to the lat/lon/alt=0
+    pos: [913063.8032876841,-5527854.368795393,3037693.6801508516]
+    ypr: [0.0,0.0,0.0]
+    parent: ecef_frame
+  rocket_fire:
+    mesh: VIRGO_PREFAB:cylinder
+    scale: 5.0
+    pos: [0.0, 0.0, -5.0]
+    ypr: [0.0, 0.0, 90.0]
+    color: [1.0, 0.6, 0.0]
+    parent: rocket_base
+  rocket_cone:
+    mesh: VIRGO_PREFAB:cone
+    scale: 4.0
+    pos: [0.0, 0.0, 26.5]
+    ypr: [0.0, 90.0, 0.0]
+    color: [0.4, 0.4, 0.4]
+    parent: rocket_base
+  capsule:
+    mesh: ../splashdown/capsule.stl
+    scale: 4.0
+    pos: [0.0, 0.0, 20.0]
+    color: [0.3, 0.3, 0.3]
+    parent: rocket_base
+  rocket_top:
+    mesh: VIRGO_PREFAB:cylinder
+    scale: 8.0
+    pos: [0.0, 0.0, 16.0]
+    ypr: [0.0, 0.0, 90.0]
+    color: [0.4, 0.4, 0.4]
+    parent: rocket_base
+  rocket_mid:
+    mesh: VIRGO_PREFAB:cylinder
+    scale: 8.0
+    pos: [0.0, 0.0, 8.0]
+    ypr: [0.0, 0.0, 90.0]
+    color: [0.5, 0.5, 0.5]
+    parent: rocket_base
+  rocket_base:
+    mesh: VIRGO_PREFAB:cylinder
+    scale: 8.0
+    pos: [0.0, 0.0, 0.0]
+    ypr: [0.0, 0.0, 90.0]
+    color: [0.6, 0.6, 0.6]
+    pickable: 1
+    trail:
+      enabled: 1
+      color: [0.0, 1.0, 0.0]
+      thickness: 5
+      opacity: 1.0
+    driven_by:
+      time: time
+      pos: lv_pos
+    parent: pad_platform
+    labels:
+      alt:
+        scale: 2.0
+        text: |
+          altitude: {lv_alt:<10.0f} meters
+          Note vehicle orientation not yet
+          modeled
+        pos: [-8.0, 0.0, 20.0]
+        ypr: [180.0, 0.0, 90.0]
+  pad_platform:
+    mesh: VIRGO_PREFAB:cube
+    color: [0.2, 0.2, 0.2]
+    pos: [0, 0, -5]  # Offset under rocket for visibility
+    scale: 10
+    ypr: [0, 0, 0]
+    parent: z_up
+frames:
+  # Earth centered inertial frame - aligns with world coordinates
+  eci_frame:
+    pos: [0.0,0.0,0.0]
+    ypr: [0.0,0.0,0.0]
+  # Earth centered earth fixed - rotates with the earth
+  ecef_frame:
+    pos: [0.0,0.0,0.0]
+    ypr: [0.0,0.0,0.0]
+    parent: eci_frame
+    driven_by:  # Actor position/rotation driven by these data aliases
+      time: time
+      rot: earth_rot
+      transpose_rot: 1  # DCM is active
+  # The location of the KSC pad in ECEF coordinates
+  KSC_pad_loc:
+    # ECEF vector to the lat/lon/alt=0
+    pos: [913063.8032876841,-5527854.368795393,3037693.6801508516]
+    ypr: [0.0,0.0,.0]
+    parent: ecef_frame
+  # Intermediate frame represnting Z-up, X-east, Y-north parented to
+  # the KSC pad location since trajectory is expressed in this frame
+  z_up:
+    parent: KSC_pad_loc
+    #TODO: this ypr is just eyeballed and not computed with precision
+    ypr: [0, 9, 61.5]
+picker:
+  tolerance: 2e-10
+camera:
+  position: [-200, 0, 200]
+  view_up: [0.30442, -0.90257, 0.30442]
+  follow: rocket_base
+  near_clipping_plane_tolerance: 5e-7
+sun:
+  direction: [1.0, 0.0, 0.0]  # World vector pointing towards sun
+lighting:
+  start_mode: ultrabright
+  dark_ambient: 0.2
+  bright_ambient: 0.7

@@ -2,5 +2,6 @@ tests/*_doctest_*.txt
 tests/*.png
 **.mp4
 examples/entry/*.csv
+examples/launch/*.csv
 examples/pendulums/*.csv
 .venv

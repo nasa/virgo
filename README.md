@@ -138,12 +138,13 @@ Details TBD
 
 ## Examples
 
-Standalone examples can be found under the `examples/` directory.  See each directory's `README.md` for more detailed information.
+Standalone examples can be found under the `examples/` directory.  If you are new to VIRGO we suggest approaching the examples in this order, and be sure to see each directory's `README.md` for more detailed information.
 
 * `hello_cube/` - A very simple static scene showing non-moving cubes used to demonstrate the basics of VIRGO scene navigation.
-* `satellite/` - A simple cube satellite in an equatorial orbit. This example shows how RCS jets firing can be visualized in a scene.
-* `entry/` - A cube satellite entering earth atmosphere and landing in the ocean. This scene provides an example of how the VIRGO framework can be extended with custom functionality.
 * `pendulums/` - A two-pendulum example demonstrating how VIRGO can consume data logged at multiple rates for each actor in a scene.
+* `satellite/` - A simple cube satellite in an equatorial orbit. This example shows how RCS jets firing can be visualized in a scene.
+* `launch/` - A simplified launch from Kennedy Space Center (KSC) pad. This example shows the high resolution WGS-84 earth and KSC image/terrain patch mechanisms.
+* `entry/` - A cube satellite entering earth atmosphere and landing in the ocean. This scene provides an example of how the VIRGO framework can be extended with custom functionality.
 * `screensaver/` - A simple screensaver example which depicts the earth and moon as well as current time and weather. This provides another example of how VIRGO can be extended with custom functionality.
 
 ## Configure Scenes with a YAML file
@@ -255,7 +256,7 @@ actors:     # The dictionary which holds all actors in the scene. The
               #   trail to pass behind objects in non-foreground layers, but
               #   due to large camera clipping ranges in midground and
               #   background, foreground is typically recommended and is the
-              #   default value
+              #   default value. THIS FEATURE IS EXPERIMENTAL USE WITH CAUTION
     parent:      # Optional name of other actor, frame, or vector that this
                  #   actor's movement is defined relative to. If no parent: is
                  #   specified, movement is defined relative to world coordinates
@@ -322,8 +323,9 @@ frames:     # The dictionary which holds all frames in the scene. A frame is
             #   reference frame located somewhere in the scene.
   my_frame: # User-chosen name for frame which acts as the key for this
             #   individual frames's sub-dict. All fields supported by actors:
-            #   are also supported by frames (except trail and mesh), so refer
-            #   to the versbose sub-dict information in the actors: section above
+            #   are also supported by frames (except trail, scale, and mesh),
+            #   so refer to the versbose sub-dict information in the actors:
+            #   section above
 
 vectors:    # The dictionary which holds all vectors in the scene. A vector is
             #   an actor whose mesh is automatically set to an 3D arrow. 

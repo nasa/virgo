@@ -1,12 +1,21 @@
 #!/usr/bin/env python3
+import numpy as np
 import os, sys, inspect, math
 thisFileDir = os.path.dirname(os.path.abspath(inspect.getsourcefile(lambda:0)))
 
 from vtkmodules.vtkRenderingCore import (
   vtkActor,
-  vtkAssembly,
   vtkPolyDataMapper,
   vtkTexture,
+)
+from vtkmodules.vtkCommonCore import (
+  vtkFloatArray,
+  vtkPoints,
+)
+from vtkmodules.vtkCommonDataModel import (
+  vtkPolyData,
+  vtkCellArray,
+  vtkQuad,
 )
 from vtkmodules.vtkFiltersSources import (
   vtkCubeSource,
@@ -23,6 +32,9 @@ from vtkmodules.vtkIOGeometry import (
 from vtkmodules.vtkIOImage import (
   vtkJPEGReader,
   vtkPNGReader,
+)
+from vtkmodules.vtkFiltersTexture import (
+  vtkTextureMapToPlane,
 )
 class VirgoActor(vtkActor):
     """
@@ -62,13 +74,13 @@ class VirgoActor(vtkActor):
 
         self.source = None  # If using a vtk*Source, it's stored here for reference
         self.mesh  = mesh
+        self.name = name            # Name of this actor
         self._map_mesh(mesh)
         self.num_vertices = None
         self.offset_pos  = offset_pos     # Initialization position offset to apply to to actor
         self.offset_ypr  = offset_ypr     # Initialization pitch/yaw/roll to apply to to actor
         self.axes_label_render_threshold = 50    # min distance axes labels can be seen
         
-        self.name = name            # Name of this actor
         self.fs = fontsize          # Font size for text associated with this actor
         #import pdb; pdb.set_trace()
         self.static = False       # If true, this actor never moves
@@ -201,6 +213,53 @@ class VirgoActor(vtkActor):
             # Standard equirectangular images need 180 rotation to
             # have earth align with ECEF frame
             self.RotateZ(180)
+        # High fidelity earth (for simulations not too close to the surface)
+        elif 'VIRGO_PREFAB:wgs84-earth' in str(mesh):
+            # -----------------------------
+            # Create WGS84 Earth ellipsoid
+            # -----------------------------
+            ellipsoid = self.create_wgs84_ellipsoid()
+            mapper.SetInputData(ellipsoid)
+            # -----------------------------
+            # Load and apply Earth texture
+            # -----------------------------
+            reader = vtkPNGReader()
+            reader.SetFileName(os.path.join(thisFileDir, 'images/earth/earth_5400x2700.png'))
+            reader.Update()
+
+            texture = vtkTexture()
+            texture.SetInputConnection(reader.GetOutputPort())
+            texture.InterpolateOn()   # Smooth texture when magnified
+            texture.RepeatOn()        # Repeat texture if UVs extend beyond [0,1]
+
+        elif 'VIRGO_PREFAB:ksc-39b-patch' in str(mesh):
+            # -----------------------------
+            # Read KSC 39B STL geometry
+            # -----------------------------
+            stl_reader = vtkSTLReader()
+            stl_reader.SetFileName(os.path.join(thisFileDir,'meshes/ksc_39b_1km.stl'))
+            stl_reader.Update()
+            mapper.SetInputConnection(stl_reader.GetOutputPort())
+
+            # -----------------------------
+            # Map textures onto STL geometry
+            # -----------------------------
+            # Note: vtkTextureMapToPlane works well for plane-like surfaces.
+            #       For highly curved or incomplete geometry, texture mapping may fail.
+            tex_filter = vtkTextureMapToPlane()
+            tex_filter.SetInputConnection(stl_reader.GetOutputPort())
+            tex_filter.Update()
+            mapper.SetInputConnection(tex_filter.GetOutputPort())
+
+            # -----------------------------
+            # Load and apply KSC texture
+            # -----------------------------
+            png_reader = vtkPNGReader()
+            png_reader.SetFileName(os.path.join(thisFileDir,'images/earth/ksc_39b_1km.png'))
+
+            texture = vtkTexture()
+            texture.SetInputConnection(png_reader.GetOutputPort())
+            texture.InterpolateOn()  # Smooth the texture when scaling
         elif 'VIRGO_PREFAB:moon8k' in str(mesh) :
             # Create a sphere source
             self.source = vtkTexturedSphereSource()
@@ -294,7 +353,10 @@ class VirgoActor(vtkActor):
             reader.Update()
             # Create a mapper and set the reader's output
             mapper.SetInputConnection(reader.GetOutputPort())
-
+        else:
+            msg = (f"ERROR: mesh name {mesh} for {self.name}"
+                   " cannot be understood.")
+            raise RuntimeError (msg)
         # Set the mapper to the actor
         self.SetMapper(mapper)
         if texture:
@@ -305,12 +367,112 @@ class VirgoActor(vtkActor):
     def get_num_vertices(self):
         return self.num_vertices
 
-#    def report(self):
-#        """
-#        Debug prints
-#        """
-#        print(f"{self.name}:")
-#        print(f"  position: {self.get_current_position()}")
-#        print(f"  rotation: {self.get_current_rotation()}")
-#        print(f"     scale: {self.get_current_scale()}")
+    def create_wgs84_ellipsoid( self, n_lat=360, n_lon=720,
+        a=6378137.0, b=6356752.314245):
+        """
+        Create a WGS-84 ellipsoid mesh using geodetic latitude
+        and longitude.
 
+        Parameters:
+            n_lat : int
+                Number of latitude divisions (-90° to +90°)
+            n_lon : int
+                Number of longitude divisions (-180° to +180°)
+            a : float
+                Equatorial radius (meters)
+            b : float
+                Polar radius (meters)
+
+        Returns:
+            vtkPolyData : VTK mesh of the WGS-84 ellipsoid with:
+                - points (vertices)
+                - quad faces
+                - normals
+                - texture coordinates
+        """
+        points = vtkPoints()                # Stores 3D vertex coordinates
+        polys = vtkCellArray()              # Stores quad connectivity
+        normals = vtkFloatArray()           # Normals for lighting
+        normals.SetNumberOfComponents(3)
+        normals.SetName("Normals")
+
+        tcoords = vtkFloatArray()           # Texture coordinates (U,V)
+        tcoords.SetNumberOfComponents(2)
+        tcoords.SetName("TextureCoordinates")
+
+        # Generate latitude and longitude arrays
+        # Latitude from -90° (south pole) to +90° (north pole)
+        lats = np.linspace(-np.pi / 2, np.pi / 2, n_lat)
+        # Longitude from -180° to +180°
+        lons = np.linspace(-np.pi, np.pi, n_lon)
+
+        # Precompute squared eccentricity for geodetic calculation
+        # e² = 1 - (b² / a²)
+        e2 = 1.0 - (b * b) / (a * a)
+
+        # Generate vertices, normals, and texture coordinates
+        for phi in lats:
+            sin_phi = np.sin(phi)
+            cos_phi = np.cos(phi)
+
+            # Radius of curvature in the prime vertical
+            N = a / np.sqrt(1.0 - e2 * sin_phi * sin_phi)
+
+            for lam in lons:
+                cos_lam = np.cos(lam)
+                sin_lam = np.sin(lam)
+
+                # Compute 3D coordinates on ellipsoid surface
+                # x = N * cos(lat) * cos(lon)
+                # y = N * cos(lat) * sin(lon)
+                # z = (b² / a² * N) * sin(lat)
+                x = N * cos_phi * cos_lam
+                y = N * cos_phi * sin_lam
+                z = (b * b / a / a * N) * sin_phi
+
+                points.InsertNextPoint(x, y, z)
+
+                # Compute normal vector at this point
+                # Used for lighting / shading
+                nx = cos_phi * cos_lam
+                ny = cos_phi * sin_lam
+                nz = sin_phi
+                normals.InsertNextTuple((nx, ny, nz))
+
+                # Compute texture coordinates (UV mapping)
+                # U = longitude mapped to [0,1]
+                # V = latitude mapped to [0,1]
+                u = (lam + np.pi) / (2.0 * np.pi)
+                v = (phi + np.pi / 2.0) / np.pi
+                tcoords.InsertNextTuple((u, v))
+
+        # Helper function to map 2D grid indices to 1D point index
+        def idx(i, j):
+            return i * n_lon + j
+
+        # Generate quad faces connecting vertices
+        # Each quad is defined by 4 neighboring vertices
+        for i in range(n_lat - 1):
+            for j in range(n_lon - 1):
+                p0 = idx(i, j)
+                p1 = idx(i + 1, j)
+                p2 = idx(i + 1, j + 1)
+                p3 = idx(i, j + 1)
+
+                quad = vtkQuad()
+                quad.GetPointIds().SetId(0, p0)
+                quad.GetPointIds().SetId(1, p1)
+                quad.GetPointIds().SetId(2, p2)
+                quad.GetPointIds().SetId(3, p3)
+                polys.InsertNextCell(quad)
+
+        # -----------------------------
+        # Assemble polydata
+        # -----------------------------
+        polydata = vtkPolyData()
+        polydata.SetPoints(points)                    # Attach vertices
+        polydata.SetPolys(polys)                      # Attach quads
+        polydata.GetPointData().SetNormals(normals)   # Attach normals
+        polydata.GetPointData().SetTCoords(tcoords)   # Attach texture coordinates
+
+        return polydata

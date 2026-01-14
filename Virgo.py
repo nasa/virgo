@@ -1124,9 +1124,10 @@ class VirgoControlCenter:
         self.cameras['foreground'].SetFocalPoint(0, 0, 0)
         self.cameras['foreground'].SetViewUp(0.0, 0.0, 1.0)  # Z is up
 
-        # Set clipping ranges for all non-foreground cameras
+        # Set clipping ranges for very far away cameras, the other cameras
+        # 'foreground' and 'midground' clipping ranges are dynamic and
+        # change with the movement of the camera
         # TODO do we want a user to be able to change this in the yaml file?
-        self.cameras['midground'].SetClippingRange(1e5, 1e12)
         self.cameras['background'].SetClippingRange(1e10, 1e17)
         # NOTE this skybox clipping range appears optimal and I'm not sure
         # why, other ranges result in the skybox becoming erratic in scenes
@@ -1236,6 +1237,16 @@ class VirgoControlCenter:
         for cam in self.cameras:
             if cam == 'foreground':
                 continue
+            # Keep the midground and foreground clipping ranges identical
+            # TODO: THIS ISN'T WORKING CORRECTLY. Since not all actors are in
+            # the foreground, the automatic clipping range fails to include large
+            # objects like earth, then setting the midground clipping range to
+            # this range means earth isn't visible. If we force midground to a
+            # far distance than we can't use trails near a large body like earth
+            # because the earth wont render as we get close to it. Need to rethink
+            # the entire midground approach
+            if cam == 'midground':
+                self.cameras[cam].SetClippingRange(main_camera.GetClippingRange())
             self.cameras[cam].SetViewUp(main_camera.GetViewUp())
             self.cameras[cam].SetFocalPoint(main_camera.GetFocalPoint())
             self.cameras[cam].SetPosition(main_camera.GetPosition())

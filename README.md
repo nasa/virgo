@@ -249,6 +249,13 @@ actors:     # The dictionary which holds all actors in the scene. The
       thickness: # Optional integer thickness of line. Default: 2.
       opacity:   # Optional float represseting opacity of trail line.
                  #   Defaults to 1.0
+      layer:  # Optional rendering layer for this trail. Must be 'foreground',
+              #   'midground', or 'background'. This can be used to combat
+              #   Z-fighting in scenes with large objects where you want the
+              #   trail to pass behind objects in non-foreground layers, but
+              #   due to large camera clipping ranges in midground and
+              #   background, foreground is typically recommended and is the
+              #   default value
     parent:      # Optional name of other actor, frame, or vector that this
                  #   actor's movement is defined relative to. If no parent: is
                  #   specified, movement is defined relative to world coordinates
@@ -305,21 +312,26 @@ actors:     # The dictionary which holds all actors in the scene. The
                      #   data source aliases to provide to this actor's node's
                      #   self.data_source member. This is an advanced feature
                      #   primarily to support extending VirgoSceneNode capability
+    layer:  # Optional rendering layer for this actor. Must be 'foreground',
+            #   'midground', or 'background' and only applies to actors with no
+            #   parent (root nodes). This can be used to combat Z-fighting in
+            #   scenes with large and small objects. Default: 'foreground'
 
 frames:     # The dictionary which holds all frames in the scene. A frame is
             #   an actor with no mesh geometry - typically an oriented x-y-z
             #   reference frame located somewhere in the scene.
   my_frame: # User-chosen name for frame which acts as the key for this
             #   individual frames's sub-dict. All fields supported by actors:
-            #   are also supported by frames, so refer to the versbose sub-dict
-            #   information in the actors: section above
+            #   are also supported by frames (except trail and mesh), so refer
+            #   to the versbose sub-dict information in the actors: section above
 
 vectors:    # The dictionary which holds all vectors in the scene. A vector is
             #   an actor whose mesh is automatically set to an 3D arrow. 
   my_vec:   # User-chosen name for vector which acts as the key for
             #   this individual vector's sub-dict. The fields supported by vectors
             #   are identical to that of the actors: section above with a few
-            #   additions and limitationss noted below
+            #   additions, limitations, and exceptions noted below.
+            #   The mesh: and trail: fields are not supported for vectors
             # Additions of vectors (related to style of the vector arrow):
     tip_length:   # Optional percentage of total vector length occupied by tip
     tip_radius:   # Optional radius of cone base relative to total vector length

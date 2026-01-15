@@ -188,7 +188,7 @@ class VirgoControlCenter:
         self.actors = {}
         self.vectors={}
         self.frames={}
-        self.trail_actors = {}
+        self.trails = {}
         self.text_actors={}
 
         self.help = False  # Display help message when true
@@ -311,16 +311,18 @@ class VirgoControlCenter:
             sp = self.nodes[n].silhouette_polydata 
             if sp != None:
                 sp.SetCamera(self.cameras['foreground'])
-        # Add node-based actors in scene
+        # Add node-based actors in scene to their respective layers
         for n in self.nodes:
             # Only add root nodes to the renderer, all children come along
             # automatically
             if self.nodes[n].parent == None:
                 #import pdb; pdb.set_trace()
-                self.renderers['foreground'].AddActor(self.nodes[n].assembly)
-        # Add all trail actors in scene
-        for a in self.trail_actors:
-            self.renderers['foreground'].AddActor(self.trail_actors[a])
+                layer = self.nodes[n].get_layer()
+                self.renderers[layer].AddActor(self.nodes[n].assembly)
+        # Add all trail actors in scene to their respective layers
+        for a in self.trails:
+            layer = self.trails[a].get_layer()
+            self.renderers[layer].AddActor(self.trails[a].get_actor())
         # Add all HUD actors to the scene
         for t in self.text_actors:
             self.renderers['foreground'].AddActor(self.text_actors[t])
@@ -391,8 +393,8 @@ class VirgoControlCenter:
     def set_frames(self, frames_dict):
         self.frames = frames_dict
 
-    def set_trail_actors(self, trail_actors_dict):
-        self.trail_actors = trail_actors_dict
+    def set_trails(self, trail_actors_dict):
+        self.trails = trail_actors_dict
 
     def create_overlay_text_actor(self, pos=[0, 0]):
         """
@@ -1121,13 +1123,15 @@ class VirgoControlCenter:
         self.cameras['foreground'].SetPosition(-10.0, 0.0, 0.0)
         self.cameras['foreground'].SetFocalPoint(0, 0, 0)
         self.cameras['foreground'].SetViewUp(0.0, 0.0, 1.0)  # Z is up
-        # TODO not sure these go best here, also do we want a user to be able
-        # to change this in the yaml file?
+
+        # Set clipping ranges for all non-foreground cameras
+        # TODO do we want a user to be able to change this in the yaml file?
+        self.cameras['midground'].SetClippingRange(1e5, 1e12)
+        self.cameras['background'].SetClippingRange(1e10, 1e17)
         # NOTE this skybox clipping range appears optimal and I'm not sure
         # why, other ranges result in the skybox becoming erratic in scenes
         # with inertial sized bodies and distances
         self.cameras['skybox'].SetClippingRange(1e6, 1e10)
-        self.cameras['background'].SetClippingRange(1e10, 1e17)
 
         # If the camera is setup to follow a node/actor, save that node in
         # self.camera_follows and pass that node into the Interactor so
@@ -1509,20 +1513,22 @@ class VirgoScene:
         Returns: dict of vtkRenderer instances
         """
         rs = {}
-        rs['skybox'] = vtkRenderer()  # For actors 1e-10 -> 1e17
+        rs['skybox'] = vtkRenderer()  # For actors at infinity
         rs['skybox'].SetLayer(0)
         rs['skybox'].InteractiveOff()
         rs['skybox'].SetBackground(bg_color)
-        rs['background'] = vtkRenderer()  # For actors 1e-10 -> 1e17
+        rs['background'] = vtkRenderer()  # For actors 1e10 -> 1e17
         rs['background'].SetLayer(1)
         rs['background'].InteractiveOff()
         rs['background'].SetBackground(bg_color)
-        # TODO: probably want a 'midground' renderer      # For actors 1e-4 -> 1e11
+        rs['midground'] = vtkRenderer()  # For actors 1e5 -> 1e12
+        rs['midground'].SetLayer(2)
+        rs['midground'].SetBackground(bg_color)
         rs['foreground'] = vtkRenderer()  # For actors 1e-2 -> 1e5
-        rs['foreground'].SetLayer(2)
+        rs['foreground'].SetLayer(3)
         rs['foreground'].SetBackground(bg_color)
         rs['console'] = vtkRenderer()  # For the developer console
-        rs['console'].SetLayer(3)
+        rs['console'].SetLayer(4)
         rs['console'].SetBackground(bg_color)
         rs['console'].InteractiveOff()
 
@@ -1673,6 +1679,8 @@ class VirgoScene:
         node = _class(name=name, actor=actor)
         node.set_highlight_color(self.highlight_color)
         parent_name=None
+        if 'layer' in actor_scene_dict and actor_scene_dict['layer'] != None:
+          node.set_layer(actor_scene_dict['layer'])
         if 'parent' in actor_scene_dict and actor_scene_dict['parent'] != None:
           parent_name=actor_scene_dict['parent']
 
@@ -1725,20 +1733,24 @@ class VirgoScene:
 
         Creates a trail_actor (which also stores it inside node)
         """
-        trail_actor = None
+        trail = None
         if 'trail' in actor_scene_dict and actor_scene_dict['trail'] != None:
           if 'enabled' in actor_scene_dict['trail'] and actor_scene_dict['trail']['enabled']:
             color = [1.0, 1.0, 1.0]
             thickness = 2
             opacity = 1.0
+            layer = 'foreground'
             if 'color' in actor_scene_dict['trail']:
               color=actor_scene_dict['trail']['color']
             if 'thickness' in actor_scene_dict['trail']:
               thickness=actor_scene_dict['trail']['thickness']
             if 'opacity' in actor_scene_dict['trail']:
               opacity=actor_scene_dict['trail']['opacity']
-            trail_actor = node.create_trail(color=color, thickness=thickness, opacity=opacity)
-        return trail_actor
+            if 'layer' in actor_scene_dict['trail']:
+              layer=actor_scene_dict['trail']['layer']
+            trail = node.create_trail(color=color, thickness=thickness,
+                                      opacity=opacity, layer=layer)
+        return trail
 
     def initialize_nodes(self, fncc=VirgoSceneNode, ancc=VirgoSceneNode,
                          vncc=VirgoSceneNodeVector):
@@ -1783,7 +1795,7 @@ class VirgoScene:
             nodes_to_add.append( (node, parent_name) )
 
         actors = {}
-        trail_actors = {}
+        trails = {}
         if 'actors' in self.scene and self.scene['actors'] != None:
           for a in self.scene['actors']:
             actors[a] = self.create_actor(actor_name=a, actor_scene_dict=self.scene['actors'][a])
@@ -1793,9 +1805,9 @@ class VirgoScene:
                                                  actor_scene_dict=self.scene['actors'][a],
                                                  _class=ancc)
             nodes_to_add.append( (node, parent_name) )
-            trail_actor = self.create_trail(node, actor_scene_dict=self.scene['actors'][a])
-            if trail_actor:
-                trail_actors[a] = trail_actor
+            trail = self.create_trail(node, actor_scene_dict=self.scene['actors'][a])
+            if trail:
+                trails[a] = trail
 
         vectors = {}
         if 'vectors' in self.scene and self.scene['vectors'] != None:
@@ -1818,7 +1830,7 @@ class VirgoScene:
         self.controller.set_vectors(vectors)
         self.controller.set_frames(frames)
         self.controller.set_nodes(self.nodes)
-        self.controller.set_trail_actors(trail_actors)
+        self.controller.set_trails(trails)
 
     def populate_nodes(self, nodes_to_add):
         """

@@ -34,7 +34,11 @@ actors:
     mesh: VIRGO_PREFAB:earth-3000
     scale: 1.0             # Size multiplier
     pos:   [0.0, 0.0, 0.0] # initial position offset in scene
-    ypr:   [0.0, 0.0, 0.0] # pitch-yaw-roll rotation offset, applied after pos:
+    ypr:   [180.0, 0.0, 0.0] # pitch-yaw-roll rotation offset, applied after pos:
+    # Put the earth in the further away midground layer. This combats z-fighting
+    # of the satellite's trail at the expense of the trail being drawn on top
+    # of the earth actor from all viewpoints
+    layer: midground
     pickable: 0
     labels:
       name:

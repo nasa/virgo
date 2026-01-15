@@ -40,6 +40,10 @@ class AxesWhen(str, Enum):
 class AxesStyle(str, Enum):
     line = "line"
     cylinder = "cylinder"
+class RenderingLayers(str, Enum):
+    foreground = "foreground"
+    midground = "midground"
+    background = "background"
 
 # Complex types defined here
 RGBColor = list[float, float, float]
@@ -63,6 +67,10 @@ class TrailSchema(BaseModel):
     color: RGBColor = [1.0, 1.0, 1.0]
     thickness: int = 2
     opacity: float = 1.0
+    layer: Optional[RenderingLayers] = Field(
+        default=RenderingLayers.foreground,
+        description="Rendering layer for this trail"
+    )
 
     @field_validator("color")
     @classmethod
@@ -155,25 +163,26 @@ class LabelSchema(BaseModel):
 
 
 class ActorBaseSchema(BaseModel):
-    # --- Optional geometry ---
     scale: float = 1.0
     opacity: float = 1.0
     pos: Vec3 = [0.0, 0.0, 0.0]
     ypr: Vec3 = [0.0, 0.0, 0.0]
     color: Optional[RGBColor] = None
-
-    # --- Interaction ---
     pickable: bool = True
+    parent: Optional[str] = None
+    provide_aliases: List[str] = Field(default_factory=list)
 
-    # --- Subsystems ---
+    layer: Optional[RenderingLayers] = Field(
+        default=RenderingLayers.foreground,
+        description="Rendering layer for this actor"
+    )
+
+    # --- SubSchemas ---
     axes: Optional[AxesSchema] = None
     trail: Optional[TrailSchema] = None
     driven_by: Optional[ActorDrivenBySchema] = None
     labels: Dict[str, LabelSchema] = Field(default_factory=dict)
 
-    # --- Relationships ---
-    parent: Optional[str] = None
-    provide_aliases: List[str] = Field(default_factory=list)
 
     # --- Validators ---
     @field_validator("pos", "ypr")
@@ -189,6 +198,13 @@ class ActorBaseSchema(BaseModel):
         if any(not (0.0 <= c <= 1.0) for c in v):
             raise ValueError("an actor's color values must be between 0.0 and 1.0")
         return v
+
+    @model_validator(mode='before')
+    def ensure_layer_only_given_for_root_nodes(self):
+        if 'parent' in self and 'layer' in self:
+            raise ValueError('layer can only be specified for actors with no'
+                             ' parent (root nodes)')
+        return self
 
 
 class DataAliasSchema(BaseModel):
@@ -217,6 +233,8 @@ class FrameSchema(ActorBaseSchema):
             return data
         if 'mesh' in data:
             raise ValueError('frames cannot have a mesh: field')
+        if 'trail' in data:
+            raise ValueError('frames cannot have a trail: field')
         return data
 
 class VectorSchema(ActorBaseSchema):
@@ -233,6 +251,8 @@ class VectorSchema(ActorBaseSchema):
             return data
         if 'mesh' in data:
             raise ValueError('vectors cannot have a mesh: field')
+        if 'trail' in data:
+            raise ValueError('vectors cannot have a trail: field')
         return data
 
     @field_validator("tip_length", "tip_radius", "shaft_radius")
@@ -243,6 +263,7 @@ class VectorSchema(ActorBaseSchema):
         if v < 0.0 or v > 1.0:
             raise ValueError(f"a vectors's {info.field_name} must be between 0.0 and 1.0")
         return v
+
 
 class SceneSchema(BaseModel):
     # Tell pydantic to ignore any unknown keys in the dict

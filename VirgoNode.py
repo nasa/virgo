@@ -2,6 +2,7 @@ import numpy as np
 from typing import List
 
 from VirgoLabel import VirgoLabel
+from VirgoTrail import VirgoTrail
 
 from vtkmodules.vtkRenderingCore import (
   vtkActor,
@@ -56,6 +57,8 @@ class VirgoSceneNode():
         # Internal flag for if this node is currently picked
         self._currently_picked = False
         self.transpose_dcm = True
+        # Rendering layer this node's self.assembly will be added to
+        self.layer = 'foreground'
 
         if axes:
             self.axes = self.create_axes()
@@ -106,14 +109,7 @@ class VirgoSceneNode():
         self.data_source = None
         self.static = True
 
-        # Trail related members
-        self._trail_points = None
-        self._trail_lines = None
-        self._trail_polydata = None
-        self._trail_mapper = None
-        self._trail_actor = None
-        self._trail_polyline = None
-        self.myscale = 1.0
+        self.trail = None # May contain a VirgoTrail instance
 
     def create_silhouette(self):
         """
@@ -312,7 +308,8 @@ class VirgoSceneNode():
         if opacity != None:
             self.actor.GetProperty().SetOpacity(float(opacity))
 
-        self.update_trail()
+        if self.trail:
+            self.trail.update(self.get_world_position())
 
     def dump_assembly(self, asm, indent=0):
         """
@@ -546,6 +543,12 @@ class VirgoSceneNode():
             return False
         return(self.axes.GetVisibility())
 
+    def set_layer(self, layer):
+        self.layer = layer
+
+    def get_layer(self):
+        return(self.layer)
+
     def hide_labels(self):
         for label in self.labels:
             self.labels[label].disable()
@@ -563,15 +566,15 @@ class VirgoSceneNode():
 
     def is_trail_visible(self):
         if self._trail_actor:
-            return self._trail_actor.GetVisibility()
+            return self.trail.is_visible()
 
     def hide_trail(self):
         if self._trail_actor:
-            return self._trail_actor.SetVisibility(0)
+            return self.trail.hide()
 
     def show_trail(self):
         if self._trail_actor:
-            return self._trail_actor.SetVisibility(1)
+            return self.trail.show()
 
     def hide_axes(self):
         if not self.axes or self.axes_when == 'always':
@@ -602,56 +605,10 @@ class VirgoSceneNode():
                       f"turn this off")
                 self.actor.GetProperty().SetOpacity(new_opacity)
 
-    def create_trail(self, color=[1.0, 1.0, 1.0], thickness=2, opacity=1.0):
-        self._trail_points = vtkPoints()
-        self._trail_lines = vtkCellArray()
-        self._trail_polydata = vtkPolyData()
-        self._trail_polydata.SetPoints(self._trail_points)
-        self._trail_polydata.SetLines(self._trail_lines)
+    def create_trail(self, color=[1.0, 1.0, 1.0], thickness=2, opacity=1.0, layer='foreground'):
+        self.trail = VirgoTrail(color=color, thickness=thickness, opacity=opacity, layer=layer)
+        return self.trail
         
-        self._trail_mapper = vtkPolyDataMapper()
-        self._trail_mapper.SetInputData(self._trail_polydata)
-        
-        self._trail_actor = vtkActor()
-        self._trail_actor.SetMapper(self._trail_mapper)
-        self._trail_actor.GetProperty().SetColor(color[0], color[1], color[2])
-        self._trail_actor.GetProperty().SetLineWidth(thickness)
-        self._trail_actor.GetProperty().SetOpacity(opacity)
-        self._trail_actor.PickableOff()
-        
-        # Maintain a polyline of visited positions
-        self._trail_polyline = vtkPolyLine()
-        self._trail_polyline.GetPointIds().SetNumberOfIds(0)  # start empty
-
-        return self._trail_actor
-        
-    def update_trail(self):
-        """
-        Add point and connecting line to the trail using the current actor
-        position
-
-        TODO: It might be better to get the position of the actor here
-        instead of the truth data from the data record file even though
-        they should always be identical
-
-        TODO: I wonder if drawing the point in "reverse direction" will
-        make the wiggling of the newly drawn segment (assumed to be due
-        to single floating point precision issues) less visible
-        """
-        if not self._trail_points:
-            return
-
-        pos = self.get_world_position()
-        pid = self._trail_points.InsertNextPoint(pos[0], pos[1], pos[2])
-        self._trail_polyline.GetPointIds().InsertNextId(pid)
-    
-        # Update line structure
-        self._trail_lines.Reset()
-        self._trail_lines.InsertNextCell(self._trail_polyline)
-    
-        self._trail_points.Modified()
-        self._trail_lines.Modified()
-        self._trail_polydata.Modified()
 
     def get_current_position(self):
         pos = None
@@ -661,16 +618,11 @@ class VirgoSceneNode():
 
     def reset_trail(self):
         """
-        Remove all lines/points from this actor's trail actor
+        Remove all lines/points from this actor's trail
         """
-        if not self._trail_points:
-            return
-        self._trail_polyline.GetPointIds().Reset()
-        self._trail_points.Reset()
-        self._trail_lines.Reset()
-        self._trail_points.Modified()
-        self._trail_lines.Modified()
-        self._trail_polydata.Modified()
+        if self.trail:
+            self.trail.reset_trail()
+
 
 
 #    def hide_or_unhide_axes_labels(self, camera):

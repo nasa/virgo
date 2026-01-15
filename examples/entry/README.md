@@ -14,3 +14,7 @@ Please take a look at these files as there's extensive comments explaining the c
 ## Driving the sun with a `vector:`
 
 TBD example of uncommenting `sun: driven_by: rope1` goes here. This shows how the position of hte sun light can be driven by a vector in the scene.
+
+## Using `layer: midground` for earth
+
+TBD explanation of rendering layers goes here. The tradeoff is between z-fighting and the trail being drawn on top of the earth.

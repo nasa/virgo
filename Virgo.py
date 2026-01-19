@@ -1546,15 +1546,16 @@ class VirgoScene:
         self.render_window.SetSize(self.window_width, self.window_height)
         self.render_window.SetWindowName(self.name)
 
+        # Set custom interactor style
+        self.interactor.SetInteractorStyle(self.interactor_style)
+        
         if self.headless:
             print("Running in headless (non-interactive) mode.")
-            self.render_window.OffScreenRenderingOn()
+            self.render_window.OffScreenRenderingOn()    
         else:
             print("Running in interactive mode.")
             self.interactor.SetRenderWindow(self.render_window)
-    
-        # Set custom interactor style
-        self.interactor.SetInteractorStyle(self.interactor_style)
+            self.interactor.Initialize()
     
         # Create controller
         self.controller.set_verbosity(self.verbosity)

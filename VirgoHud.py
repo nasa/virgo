@@ -167,7 +167,7 @@ class VirgoHud:
                 f"\n v: Print picked node info in terminal"
                 f"\n BackSpace: Toggle starfield"
                 f"\n h: Toggle this help message"
-                f"\n j/k: Near Plane Clipping Tolerance"
+                f"\n j/k: Near Clipping Plane Tolerance"
                 f"\n J/K: Picker Tolerance"
                 f"\n `: Toggle Developer console"
                 f"\n Q: Quit"

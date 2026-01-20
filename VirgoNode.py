@@ -283,30 +283,28 @@ class VirgoSceneNode():
         for label in self.labels:
             self.labels[label].update(world_time)
 
-        if not self.data_source or self.is_static():
-            return
+        # If there's a self.data_source, drive the node with it
+        if self.data_source:
+            self.data_source.set_current_time(world_time)
+            pos   = self.data_source.get_current_position()
+            rot   = self.data_source.get_current_rotation()
+            scale = self.data_source.get_current_scale()
+            opacity = self.data_source.get_current_opacity()
+            #import pdb; pdb.set_trace()
+            if self.verbosity > 3:
+                print(f"In VirgoSceneNode.update() with world_time: {world_time} and")
+                print(f"  data_source pos:   {pos}")
+                print(f"  data_source rot:   {rot}")
+                print(f"  data_source scale: {scale}")
+                if self.verbosity > 4:
+                    self.report()
 
-        # Query self.data_souce for the data we need to drive the node
-        self.data_source.set_current_time(world_time)
-        pos   = self.data_source.get_current_position()
-        rot   = self.data_source.get_current_rotation()
-        scale = self.data_source.get_current_scale()
-        opacity = self.data_source.get_current_opacity()
-        #import pdb; pdb.set_trace()
-        if self.verbosity > 3:
-            print(f"In VirgoSceneNode.update() with world_time: {world_time} and")
-            print(f"  data_source pos:   {pos}")
-            print(f"  data_source rot:   {rot}")
-            print(f"  data_source scale: {scale}")
-            if self.verbosity > 4:
-                self.report()
+            # Pose the node with this data
+            self.set_pose(pos=pos, dcm=rot, transpose_dcm=self.transpose_dcm, scale=scale)
 
-        # Pose the node with this data
-        self.set_pose(pos=pos, dcm=rot, transpose_dcm=self.transpose_dcm, scale=scale)
-
-        # if specified, adjust the opacity of the actor
-        if opacity != None:
-            self.actor.GetProperty().SetOpacity(float(opacity))
+            # if specified, adjust the opacity of the actor
+            if opacity != None:
+                self.actor.GetProperty().SetOpacity(float(opacity))
 
         if self.trail:
             self.trail.update(self.get_world_position())

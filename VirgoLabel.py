@@ -1,4 +1,5 @@
 import re
+import numpy as np
 
 from vtkmodules.vtkRenderingCore import (
   vtkFollower,
@@ -27,6 +28,8 @@ class VirgoLabel():
         self.original_text = str(text) # Copy of original text field upon label creation
         self.name = name    # Name of this label
         self.scale = scale  # Size in units of the text in the scene
+        self.local_position  = [0, 0, 0]
+        self.local_ypr =  [0, 0, 0]
         self.label_text = vtkVectorText()
         label_mapper = vtkPolyDataMapper()
         label_mapper.SetInputConnection(self.label_text.GetOutputPort())
@@ -34,8 +37,14 @@ class VirgoLabel():
         self.label_follower.SetMapper(label_mapper)
         self.label_follower.SetScale(self.scale, self.scale, self.scale)
         self.label_follower.PickableOff()        # Labels can't be picked
-        self.data_source = None # Is a VirgoDataSource if this label is driven by sim data
+        # Flag for if this label's node is currently picked
+        self._node_currently_picked = None
+        # This is a VirgoDataSource if this label is driven by sim data
+        self.data_source = None
         self.variable = None    # variable name in self.data_source to use
+        self.faces_camera = None
+        self._valid_axes_when = ['always', 'never', 'picked', 'toggled']
+        self.when = None
         self.set_text(self.original_text)
         self.enabled = True
         self.disable()  # Turn it off by default
@@ -49,11 +58,18 @@ class VirgoLabel():
 
     def disable(self):
         """Disable this label"""
+        if not self.when or self.when == 'always':
+            return
         self.enabled = False
         self.label_follower.SetVisibility(False)
 
     def enable(self):
         """Enable this label"""
+        if not self.when or self.when == 'never':
+            return
+        if self.when == 'picked' and not self._node_currently_picked:
+            return
+
         self.enabled = True
         self.label_follower.SetVisibility(True)
 
@@ -69,7 +85,8 @@ class VirgoLabel():
         """
         Set the position of the label (relative to it's parent)
         """
-        self.label_follower.SetPosition(position)
+        self.local_position = position
+        self.label_follower.SetPosition(self.local_position)
 
     def get_position(self):
         """
@@ -82,7 +99,8 @@ class VirgoLabel():
         Set the yaw-pitch-roll rotation (Z-Y-X order)
         of the label (relative to it's parent)
         """
-        rz, ry, rx = yaw_pitch_roll
+        self.local_ypr = yaw_pitch_roll
+        rz, ry, rx = self.local_ypr
         self.label_follower.RotateZ(rz)
         self.label_follower.RotateY(ry)
         self.label_follower.RotateX(rx)
@@ -92,6 +110,33 @@ class VirgoLabel():
         Set the color of the label text
         """
         self.label_follower.GetProperty().SetColor(color)
+
+    def set_faces_camera(self, fc):
+        """
+        Set the flag for if this label always faces the camera
+        Accepted values are governed by rules in VirgoDictVerifier
+        """
+        self.faces_camera = fc
+
+    def set_when(self, wh):
+        """
+        Set the mode for when this label should be displayed
+        Accepted values are governed by rules in VirgoDictVerifier
+        """
+        self.when = wh
+        if self.when == 'never':
+            self.disable()
+        elif self.when == 'always':
+            self.enable()
+
+    def get_when(self):
+        """
+        Get the mode for when this label should be displayed
+        """
+        return(self.when)
+
+    def get_faces_camera(self):
+        return(self.faces_camera)
 
     def set_data_source(self, data_source):
         """Set the data source of the label
@@ -105,8 +150,54 @@ class VirgoLabel():
         if self.data_source and not self.data_source.is_initialized():
             self.data_source.initialize()
 
-    def update(self, world_time):
-        """Update this label with variable information from the data source
+    def initialize(self, world_time, node_world_position):
+        """
+        Forcibly update the label's state regardless of whether it's enabled or
+        not. This function is meant to be called as the VIRGO scene comes up for
+        the first time
+
+        Args:
+          world_time: World time
+          node_world_position:  World position of this label's node
+        """
+        orig_state = self.enabled   # Store off original enabled state
+        self.enabled = True         # Force the label on for the update
+        self.update(world_time, node_world_position) # Update the label
+        self.enabled = orig_state   # Set enable state to orig state
+        # Set the state
+        if self.enabled:
+            self.enable()
+        else:
+            self.disable()
+
+    def set_currently_picked(self, picked=True):
+        """
+        Set value of internally tracked currently picked flag
+        """
+        self._node_currently_picked = picked
+
+    def update(self, world_time, node_world_position):
+        """
+        Update this label by making the sure the text is up to date
+        and moving the label follower to it's latest position
+        """
+        #print(f"DEBUG: self._node_currently_picked: {self._node_currently_picked}")
+        if not self.enabled:
+            return
+        self.update_text(world_time)
+        # If the label always faces the active camera that means it's NOT part
+        # of its node's vtkassembly and we therefore we need to add the node's
+        # world position to the label's local position.
+        if self.get_faces_camera() == True:
+            #import pdb; pdb.set_trace()
+            self.get_follower().SetPosition(
+                node_world_position + self.local_position)
+        else:
+            self.get_follower().SetPosition(self.local_position)
+
+    def update_text(self, world_time):
+        """
+        Update this label with variable information from the data source
 
         This is the function which updates text strings relying on a data
         source with actual values from that data source. Strings containing
@@ -120,8 +211,6 @@ class VirgoLabel():
             world_time (double): World time of the scene. This is ignored if
             this label's self.data_source == None
         """
-        if not self.enabled:
-            return
         #import pdb; pdb.set_trace()
         if self.data_source == None:
             self.set_text(f"{self.original_text}")

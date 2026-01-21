@@ -172,6 +172,8 @@ class VirgoSceneNode():
         Set value of internally tracked currently picked flag
         """
         self._currently_picked = picked
+        for label in self.labels:
+            self.labels[label].set_currently_picked(picked)
 
     def set_transpose_dcm(self, value=True):
         """
@@ -225,12 +227,14 @@ class VirgoSceneNode():
         self.name = str(name)
 
     def add_label(self, name, text, position=[0.0, 0.0, 0.0], ypr=[0.0, 0.0, 0.0],
-                  scale=0.3, color=[1.0, 1.0, 1.0]):
+                  scale=0.3, color=[1.0, 1.0, 1.0],faces_camera=False, when='always'):
         """
         Add a label to this node's self.labels dict
 
         Args:
           text (str): String representing the label's content
+
+        Returns: The label added to this node which is also stored in self.labels
         """
         self.labels[name] = VirgoLabel(name=name, text=text, scale=scale)
         # TODO: if text is found in self.vds.additional_data, call other functions
@@ -238,8 +242,19 @@ class VirgoSceneNode():
         self.labels[name].set_position(position)
         self.labels[name].set_yaw_pitch_roll(ypr)
         self.labels[name].set_color(color)
+        self.labels[name].set_faces_camera(faces_camera)
+        self.labels[name].set_when(when)
         #import pdb; pdb.set_trace()
-        self.assembly.AddPart(self.labels[name].get_follower())
+        follower = self.labels[name].get_follower()
+    
+        # If this label doesn't always face the camera is is added to this node's
+        # vtkAssembly as it travels within the node's local frame. Note that if
+        # it does face the camera it gets added as an independent actor to the
+        # node's renderer one level up from here
+        if self.labels[name].get_faces_camera() == False:
+            self.assembly.AddPart(follower)
+
+        return self.labels[name]
 
     def get_label(self, name):
         """Get a label by name"""
@@ -248,6 +263,25 @@ class VirgoSceneNode():
             raise RuntimeError (msg)
         return self.labels[name]
 
+    def initialize_labels(self, world_time):
+        """
+        Initialize all labels in this node
+
+        Args:
+          world_time: World time
+        """
+        world_pos = np.array(self.get_world_position())
+        for name, label in self.labels.items():
+            label.initialize(world_time, world_pos)
+
+    def update_labels(self, world_time):
+        """
+        Update all labels in this node
+        """
+        world_pos = np.array(self.get_world_position())
+        
+        for name, label in self.labels.items():
+            label.update(world_time, world_pos)
 
     def is_static(self):
         return (self.data_source is None)
@@ -275,13 +309,18 @@ class VirgoSceneNode():
         self.assembly.AddPart(child.assembly)
         self.children.append(child)
 
+    def initialize(self, world_time):
+        """
+        Initialize this node
+        """
+        self.update(world_time)
+        if self.labels:
+            self.initialize_labels(world_time)
+
     def update(self, world_time):
         """
         Update this node with data from self.data_source based on world_time
         """
-        # Update any labels associated with this node
-        for label in self.labels:
-            self.labels[label].update(world_time)
 
         # If there's a self.data_source, drive the node with it
         if self.data_source:
@@ -308,6 +347,8 @@ class VirgoSceneNode():
 
         if self.trail:
             self.trail.update(self.get_world_position())
+        if self.labels:
+            self.update_labels(world_time)
 
     def dump_assembly(self, asm, indent=0):
         """
@@ -553,6 +594,7 @@ class VirgoSceneNode():
 
     def show_labels(self):
         for label in self.labels:
+            #import pdb; pdb.set_trace()
             self.labels[label].enable()
 
     def are_labels_visible(self):

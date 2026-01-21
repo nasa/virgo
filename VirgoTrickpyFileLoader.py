@@ -131,7 +131,8 @@ class VirgoTrickpyFileLoader(VirgoDataLoader):
               continue
         if len(expected_vars) > 0:
           msg = (f"ERROR: The following variables from trickpy: section of scene "
-                f"were not found in data loading of {self.run_dir}\n{expected_vars}")
+                f"were not found in data loading of {self.run_dir}\n"
+                f"{sorted(expected_vars)}")
           raise RuntimeError (msg)
         return (self.drg)
 
@@ -217,24 +218,60 @@ class VirgoTrickpyFileLoader(VirgoDataLoader):
           raise RuntimeError (msg)
 
         variable = self.trickpy_dict[alias]['var']
+        #print(f"DEBUG BEFORE variable: {variable} and alias: {alias}")
+        var_indices = ''
         # Search for the [] var_indices in the var associated with the alias
         # given, and split it into variable=(variable with no var_indices),
         # var_indices=(var_indices) where var_indices is None if not given
-        indices_pattern = r"\[.*\]"
-        match = re.search(indices_pattern, variable)
-        var_indices = ''
-        if match:
-            var_indices = match.group(0)
-            variable = variable.split(var_indices)[0]
+        variable, var_indices = self.split_variable_indices(variable)
+        #print(f"DEBUG MID: variable:{variable}  var_indices:{var_indices}   specified_indices: {specified_indices}")
         # TODO: This check may not be robust to two-dimensional arrays, if alias=rot[0] for
         # example but the underlying var is defined as rotation[0-2][0-2]
-        if specified_indices == '' and var_indices != '':
-          msg = (f"ERROR: {alias} is multidimensional. Specify indices to request a single " 
-                 "variable instead, ex: pos[0] instead of pos, rot[1][2] instead of rot")
-          raise RuntimeError (msg)
+        if specified_indices == '':
+          if '-' in var_indices:
+            msg = (f"ERROR: {alias} is multidimensional. Specify indices to request a single " 
+                   "variable instead, ex: pos[0] instead of pos, rot[1][2] instead of rot")
+            raise RuntimeError (msg)
+          # If we got here that means the alias refers to a single array value
+          # so it's safe to assign specified_indices directly to var_indices
+          specified_indices = var_indices
         grp = self.trickpy_dict[alias]['group']
+        #print(f"DEBUG END: variable:{variable}  var_indices:{var_indices} group: {grp}  specified_indices: {specified_indices}")
         return self.drg[grp][variable+specified_indices].tolist()
         
+    @staticmethod
+    def split_variable_indices(s):
+        """
+        A function designed to split off the last occurance of a variable
+        indices pattern, returning the string leading up to that indices
+        pattern and the indices matched to that pattern. Here are several
+        examples of the form  (input  ->  first match | second match)
+
+        sys.exec.out.time                   -> "sys.exec.out.time" | ""
+        time                                -> "time" | ""
+        position[0]                         -> "position" | "[0]"
+        position[0-2]                       -> "position" | "[0-2]"
+        my.foo[0].position[0-2]             -> "my.foo[0].position" | "[0-2]"
+        my.foo[0].position[0]               -> "my.foo[0].position" | "[0]"
+        my.foo[0].R[0-2][0-2]               -> "my.foo[0].R" | "[0-2][0-2]"
+        my.foo[0].bar[0]                    -> "my.foo[0].bar" | "[0]"
+        my.foo[0].opacity                   -> "my.foo[0].opacity" | ""
+        my.foo[0][1].bar[0][0]              -> "my.foo[0][1].bar" | "[0][0]"
+        my.foo[0][1].bar[0-2][0-2]          -> "my.foo[0][1].bar" | "[0-2][0-2]"
+        my.foo[0][0][0].hello               -> "my.foo[0][0][0].hello" | ""
+        my.foo[0][0][0].hi[0]               -> "my.foo[0][0][0].hi" | "[0]"
+        my.foo[0][0][0].hi[0][2]            -> "my.foo[0][0][0].hi" | "[0][2]"
+        my.foo[0][0][0].hi[0-2][0-2]        -> "my.foo[0][0][0].hi" | "[0-2][0-2]"
+        """
+        # Match: (anything)(one or more bracket pairs at the end)
+        # Bracket pairs can contain digits and hyphens: [0], [0-2], etc.
+        match = re.match(r'^(.+?)((?:\[[\d\-]+\])+)$', s)
+        if match:
+            return match.group(1), match.group(2)
+        else:
+            # No indices at the end
+            return s, ''
+
     def get_alias_datas(self, alias):
         """
         Get datas (more than one value at a time) associated with an
@@ -279,9 +316,8 @@ class VirgoTrickpyFileLoader(VirgoDataLoader):
         """
         datas = []
         # This function doesn't want indices, if we detect them, error out
-        indices_pattern = r"\[.*\]"
-        match = re.search(indices_pattern, alias)
-        if match:
+        alias, alias_indices = self.split_variable_indices(alias)
+        if alias_indices != '':
             msg = (f"ERROR: Indices found in {alias}. Do not include indices [] when calling "
                    "get_alias_datas()")
             raise RuntimeError (msg)
@@ -294,11 +330,7 @@ class VirgoTrickpyFileLoader(VirgoDataLoader):
         # Search for the [] var_indices in the var associated with the alias
         # given, and split it into variable=(variable with no var_indices),
         # var_indices=(var_indices) where var_indices is None if not given
-        match = re.search(indices_pattern, variable)
-        var_indices = ''
-        if match:
-            var_indices = match.group(0)
-            variable = variable.split(var_indices)[0]
+        variable, variable_indices = self.split_variable_indices(variable)
         # We can assume the data type by looking at expansion of the variable notation
         # [0-2] means a size 3
         # [0-2][0-2] means a size 3x3 aka 9

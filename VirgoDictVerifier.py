@@ -32,7 +32,7 @@ class LightingMode(str, Enum):
     realistic = 'realistic'
     headlight = 'headlight'
     ultrabright = 'ultrabright'
-class AxesWhen(str, Enum):
+class AxesAndLabelsWhen(str, Enum):
     toggled = "toggled"
     picked = "picked"
     always = "always"
@@ -53,6 +53,11 @@ def validate_vec3(value: Vec3, name: str):
     if len(value) != 3:
         raise ValueError(f"{name} must have exactly 3 elements")
     return value
+
+def force_to_boolen(v):
+    if isinstance(v, str):
+        return v.lower() in ('true', '1', 'yes', 'on')
+    return bool(v)
 
 def format_pydantic_errors(err: ValidationError) -> str:
     lines = []
@@ -102,7 +107,7 @@ class PickerSchema(BaseModel):
     tolerance: Optional[float] = VIRGO_DEFAULT_PICKER_TOLERANCE
 
 class AxesSchema(BaseModel):
-    when: Optional[AxesWhen] = None
+    when: Optional[AxesAndLabelsWhen] = AxesAndLabelsWhen.toggled
     style: Optional[AxesStyle] = None
     length: Optional[Vec3] = None
     affect_opacity: bool = True
@@ -153,6 +158,8 @@ class LabelSchema(BaseModel):
     ypr: Vec3 = [0.0, 0.0, 0.0]
     scale: Optional[float] = VIRGO_DEFAULT_LABEL_SCALE
     color: RGBColor = VIRGO_DEFAULT_LABEL_COLOR
+    faces_camera: Optional[bool] = False
+    when: Optional[AxesAndLabelsWhen] = AxesAndLabelsWhen.toggled
 
     @field_validator("color")
     @classmethod
@@ -161,6 +168,20 @@ class LabelSchema(BaseModel):
             raise ValueError("A label's color values must be between 0.0 and 1.0")
         return v
 
+    @field_validator('faces_camera', mode='before')
+    @classmethod
+    def validate_boolean(cls, v):
+        return(force_to_boolen(v))
+
+    @model_validator(mode='before')
+    @classmethod
+    def ensure_no_ypr_if_faces_camera_true(cls, data: Any) -> Any:
+        if not isinstance(data, dict):
+            return data
+        if ('ypr' in data and 'faces_camera' in data and 
+            data['faces_camera'] == True):
+            raise ValueError('label cannot have ypr: if faces_camera: is 1')
+        return data
 
 class ActorBaseSchema(BaseModel):
     scale: float = 1.0

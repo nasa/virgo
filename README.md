@@ -232,6 +232,7 @@ actors:     # The dictionary which holds all actors in the scene. The
       when: # Optional string setting for when interal axes should be
             #   displayed with accepted values as follows:
             #   toggled - show axes when global setting (key:'a') is toggled
+            #             This is the default option
             #   picked  - show axes when setting toggled and actor is picked
             #   always  - always show axes
             #   never   - never show axes
@@ -300,7 +301,9 @@ actors:     # The dictionary which holds all actors in the scene. The
                  #   data specific to sat_vel. At runtime, the value of sat_vel[0]
                  #   will be queried from the data source and shown in the label
         pos:    # Optional list of 3 floats defining the position offset of
-                #   the label text relative to this actor's node. Defaults to
+                #   the label text relative to this actor's node. If faces_camera
+                #   is 1, pos is expressed in world coordinates. If faces_camera
+                #   is 0, pos is expressed in node local coordiantes
                 #   no offset of [0, 0, 0]
         ypr:    # Optional list of 3 floats defining the yaw-pitch-roll offset
                 #   in degrees of the label relative to this actor's node.
@@ -308,7 +311,18 @@ actors:     # The dictionary which holds all actors in the scene. The
                 #   Defaults to no ypr offset value of [0, 0, 0]. Note that
                 #   by default label text is written left-to-right starting at
                 #   this actor's node's local origin towards the +X direction
-                #   with text facing in the +Z direction
+                #   with text facing in the +Z direction. Not allowed when
+                #   faces_camera is 1
+        faces_camera: # Optional boolean 0 or 1. If 1, the label will always
+                      #   face the camera. If 0, the label will be fixed to
+                      #   the local node coordinates. Defaults to 0
+        when: # Optional string setting for when this label should be
+              #   displayed with accepted values as follows:
+              #   toggled - show label when global setting (key:'L') is toggled
+              #             This is the default option
+              #   picked  - show label when setting toggled and actor is picked
+              #   always  - always show label
+              #   never   - never show label
     provide_aliases: # Optional list of data source alias key names. Additional
                      #   data source aliases to provide to this actor's node's
                      #   self.data_source member. This is an advanced feature

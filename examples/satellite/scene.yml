@@ -112,8 +112,8 @@ actors:
     labels:
       name:
         text: "Earth"
+        faces_camera: 1
         pos: [0.0, 0.0, 6500000.0]
-        ypr: [0.0, 0.0, 90.0]
         scale: 300000
     axes: 
       when: never          # always, never, picked, or toggled
@@ -143,13 +143,14 @@ actors:
         pos: [2.0, 0.0, 0.0]
         ypr: [0.0, 0.0, 0.0]
       velocity:
+        faces_camera: 1
         scale: 0.5
         text: |
           Inertial velocity (m/s):
             x: {sat_vel[0]:<10.5f}
             y: {sat_vel[1]:<10.5f}
             z: {sat_vel[2]:<10.5f}
-        pos: [2.0, -0.7, 0.0]
+        pos: [0, -0.7, 5.0]
   # RCS Jet positions and force directions in the 
   # body frame taken from Satellite::initialize()
   RCS_T1:

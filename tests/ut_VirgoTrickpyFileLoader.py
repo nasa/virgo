@@ -33,6 +33,22 @@ class VirgoDataLoaderSimpleTestCase(unittest.TestCase):
         self.trickpy_dict['pos']['var']    = "position[0-2]"
         self.trickpy_dict['rot']['var']    = "R[0-2][0-2]"
 
+    def setUp_complex_var_names_01(self):
+        """A dict suitable for RUN_complex_var_names_01 dir"""
+        self.trickpy_dict  = {}
+        self.trickpy_dict['time']  = {}
+        self.trickpy_dict['pos']  = {}
+        self.trickpy_dict['rot']  = {}
+        self.trickpy_dict['opacity']  = {}
+        self.trickpy_dict['time']['group']    = "one_body_static"
+        self.trickpy_dict['pos']['group']     = "one_body_static"
+        self.trickpy_dict['rot']['group']     = "one_body_static"
+        self.trickpy_dict['opacity']['group'] = "one_body_static"
+        self.trickpy_dict['time']['var']      = "sys.exec.out.time"
+        self.trickpy_dict['pos']['var']       = "my.foo[0].position[0-2]"
+        self.trickpy_dict['rot']['var']       = "my.foo[0].R[0-2][0-2]"
+        self.trickpy_dict['opacity']['var']   = "my.foo[0].bar[0]"
+
     def test_expand_arrays(self):
         """
         Test the expand_arrays static method
@@ -76,6 +92,35 @@ class VirgoDataLoaderSimpleTestCase(unittest.TestCase):
         with self.assertRaises(RuntimeError):
             # Indices not specified when they need to be
             posxs = self.instance.get_alias_data(alias='pos')
+
+    def test_get_alias_data_complex_var_names_01(self):
+        self.setUp_complex_var_names_01()
+
+        self.instance = VirgoTrickpyFileLoader(
+            run_dir=os.path.join(tests_dir, 'trickpy_data_source/RUN_complex_var_names_01'),
+            trickpy_dict=self.trickpy_dict,
+            verbosity=1)
+        self.instance.load_variables()
+        times = self.instance.get_alias_data(alias='time')
+        self.assertEqual(times, [0.0, 1.0, 2.0, 3.0, 4.0, 5.0])
+        posxs = self.instance.get_alias_data(alias='pos[0]')
+        posys = self.instance.get_alias_data(alias='pos[1]')
+        poszs = self.instance.get_alias_data(alias='pos[2]')
+        opacities = self.instance.get_alias_data(alias='opacity')
+        # TODO need more assertions here
+        self.assertEqual(posxs[0], 0.0)
+        self.assertEqual(posys[0], 0.0)
+        self.assertEqual(poszs[0], 0.0)
+        self.assertEqual(opacities[0], 0.5)
+
+        Rxxs = self.instance.get_alias_data(alias='rot[0][0]')
+        # TODO need more assertions here
+        self.assertEqual(Rxxs[0], 1.0)
+
+        with self.assertRaises(RuntimeError):
+            # Indices not specified when they need to be
+            posxs = self.instance.get_alias_data(alias='pos')
+
 
     def test_init_missing_recorded_data_variables(self):
         """
@@ -143,3 +188,35 @@ class VirgoDataLoaderOverlappingDataTestCase(unittest.TestCase):
         pos1xs = self.instance.get_alias_data(alias='pos1[0]')
         pos1ys = self.instance.get_alias_data(alias='pos1[1]')
         pos1zs = self.instance.get_alias_data(alias='pos1[2]')
+
+class VirgoDataLoaderStaticFunctions(unittest.TestCase):
+    """
+    Test the static functions
+    """
+    def setUp(self):
+        #  Format of the data is: Input, expected 1st output, expected 2nd output
+        self.test_strings = [
+            ['sys.exec.out.time',             'sys.exec.out.time',            ''],
+            ['time',                          'time',                         ''],
+            ['position[0]',                   'position',                  '[0]'],
+            ['position[0-2]',                 'position',                '[0-2]'],
+            ['my.foo[0].position[0-2]',       'my.foo[0].position',      '[0-2]'],
+            ['my.foo[0].position[0]',         'my.foo[0].position',        '[0]'],
+            ['my.foo[0].R[0-2][0-2]',         'my.foo[0].R',        '[0-2][0-2]'],
+            ['my.foo[0].bar[0]',              'my.foo[0].bar',             '[0]'],
+            ['my.foo[0].opacity',             'my.foo[0].opacity',            ''],
+            ['my.foo[0][1].bar[0][0]',        'my.foo[0][1].bar',       '[0][0]'],
+            ['my.foo[0][1].bar[0-2][0-2]',    'my.foo[0][1].bar',   '[0-2][0-2]'],
+            ['my.foo[0][0][0].hello',         'my.foo[0][0][0].hello',        ''],
+            ['my.foo[0][0][0].hi[0]',         'my.foo[0][0][0].hi',        '[0]'],
+            ['my.foo[0][0][0].hi[0][2]',      'my.foo[0][0][0].hi',     '[0][2]'],
+            ['my.foo[0][0][0].hi[0-2][0-2]',  'my.foo[0][0][0].hi', '[0-2][0-2]'],
+        ]
+    def test_split_variable_indices(self):
+        for row in self.test_strings:
+            input          = row[0]
+            expected_first = row[1]
+            expected_second = row[2]
+            part1, part2 = VirgoTrickpyFileLoader.split_variable_indices(input)
+            self.assertEqual(part1, expected_first)
+            self.assertEqual(part2, expected_second)

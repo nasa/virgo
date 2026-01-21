@@ -220,6 +220,7 @@ class VirgoControlCenter:
         self.camera_pass = None    # Used for rendering in 'realistic' lighting mode
         self.verbosity = 1
         self.hud = None
+        self._labels_toggle = 'on' # Internal flag for tracking labels toggle with 'L'
         self.virgo_console = None
 
     def initialize(self):
@@ -239,7 +240,7 @@ class VirgoControlCenter:
         self.initialize_images_dir()
         self.add_renderers_to_render_window()
         self._determine_max_and_min_sim_time()
-        self.update_nodes()
+        self.initialize_nodes()
         self.initialize_text_actors()
         self.initialize_scene_settings()
         self.init_lighting()
@@ -407,6 +408,14 @@ class VirgoControlCenter:
         text.GetTextProperty().SetColor(1, 1, 1)
         text.SetDisplayPosition(pos[0], pos[1])
         return text
+
+    def initialize_nodes(self):
+        """
+        Run initialize() on all nodes. This is meant to be called when the
+        VirgoControlCenter first starts
+        """
+        for n in self.nodes:
+            self.nodes[n].initialize(self.world_time)
 
     def update_nodes(self):
         '''
@@ -663,8 +672,13 @@ class VirgoControlCenter:
     @virgo_console
     def toggle_node_labels(self):
         """Turn on/off node labels"""
+        if self._labels_toggle == 'on':
+          self._labels_toggle = 'off'
+        else:
+          self._labels_toggle = 'on'
+
         for n in self.nodes:
-            if self.nodes[n].are_labels_visible():
+            if self._labels_toggle == 'off':
                 self.nodes[n].hide_labels()
             else:
                 self.nodes[n].show_labels()
@@ -719,6 +733,7 @@ class VirgoControlCenter:
         for n in self.nodes:
             if self.nodes[n].actor:
                 self.nodes[n].actor.GetProperty().SetAmbient(value)
+            # TODO: we should probably make all labels self.bright_ambient
 
     @virgo_console
     def toggle_trails(self):
@@ -1718,6 +1733,7 @@ class VirgoScene:
             ypr = [0.0, 0.0, 0.0]
             scale = 0.3
             color = [1.0, 1.0, 1.0]
+            when = 'always'
             if 'text' in labels[label]  and labels[label]['text'] != None:
               text = labels[label]['text']
             if 'pos' in labels[label]  and labels[label]['pos'] != None:
@@ -1728,15 +1744,29 @@ class VirgoScene:
               ypr = labels[label]['ypr']
             if 'color' in labels[label]  and labels[label]['color'] != None:
               color = labels[label]['color']
+            if 'faces_camera' in labels[label]  and labels[label]['faces_camera'] != None:
+              faces_camera = labels[label]['faces_camera']
+            if 'when' in labels[label]  and labels[label]['when'] != None:
+              when = labels[label]['when']
             # Add the label to the node
-            node.add_label(name=label, text=text, position=position, ypr=ypr, scale=scale, color=color)
-            # Tell the label to follow the camera so it always faces it, this is how it's
-            # supposed to be done but it isn't working as expected, the text will move but
-            # it won't follow the camera - I think it's because the text is underneath the
-            # assembly system. If this is a limitation of the VTK framework we could consider
-            # a separate function after all nodes update that orients each label to face the
-            # camera manually, not sure how to do that but it must be possible.
-            #node.get_label(label).get_follower().SetCamera(self.renderers['foreground'].GetActiveCamera())
+            label = node.add_label(
+                name=label,
+                text=text,
+                position=position,
+                ypr=ypr,
+                scale=scale,
+                color=color,
+                faces_camera=faces_camera,
+                when=when
+                )
+            # If this label always faces the camera, it needs to be added to the
+            # renderer directly instead of being part of the node's vtkAssembly
+            if label.get_faces_camera() == True:
+                l = node.get_layer()
+                follower = label.get_follower()
+                #import pdb; pdb.set_trace()
+                self.renderers[l].AddActor(follower)
+                follower.SetCamera(self.renderers[l].GetActiveCamera())
 
         return node, parent_name
 

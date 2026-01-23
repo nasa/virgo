@@ -126,7 +126,7 @@ class VirgoTrickpyFileLoader(VirgoDataLoader):
           for var in self.drg[group]:
             if len(expected_vars) == 0:
                break
-            if var in load_these_variables:
+            if var in expected_vars:
               expected_vars.remove(var)
               continue
         if len(expected_vars) > 0:

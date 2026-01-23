@@ -16,6 +16,7 @@ def suite():
     suites = []
     suites.append(unittest.TestLoader().loadTestsFromTestCase(VirgoDataLoaderSimpleTestCase))
     suites.append(unittest.TestLoader().loadTestsFromTestCase(VirgoDataLoaderOverlappingDataTestCase))
+    suites.append(unittest.TestLoader().loadTestsFromTestCase(VirgoDataLoaderStaticFunctionsTestCase))
     return (suites)
 
     import time
@@ -189,7 +190,7 @@ class VirgoDataLoaderOverlappingDataTestCase(unittest.TestCase):
         pos1ys = self.instance.get_alias_data(alias='pos1[1]')
         pos1zs = self.instance.get_alias_data(alias='pos1[2]')
 
-class VirgoDataLoaderStaticFunctions(unittest.TestCase):
+class VirgoDataLoaderStaticFunctionsTestCase(unittest.TestCase):
     """
     Test the static functions
     """

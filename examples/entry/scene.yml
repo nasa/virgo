@@ -63,7 +63,7 @@ actors:
       name:
         scale: 1.5
         color: [1.0, 1.0, 1.0]
-        text: "Altitude {sat_alt:<10.1f} m"
+        text: "Altitude {sat_alt@time:<10.1f} m"
         pos: [0.0, 0.0, 5.0]
         ypr: [90.0, 0.0, 90.0]
 picker:

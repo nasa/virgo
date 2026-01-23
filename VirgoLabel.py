@@ -126,6 +126,8 @@ class VirgoLabel():
         self.when = wh
         if self.when == 'never':
             self.disable()
+        elif self.when == 'picked' and not self._node_currently_picked:
+            self.disable()
         elif self.when == 'always':
             self.enable()
 
@@ -164,6 +166,7 @@ class VirgoLabel():
         self.enabled = True         # Force the label on for the update
         self.update(world_time, node_world_position) # Update the label
         self.enabled = orig_state   # Set enable state to orig state
+        #import pdb; pdb.set_trace()
         # Set the state
         if self.enabled:
             self.enable()
@@ -225,6 +228,15 @@ class VirgoLabel():
         found_clauses = self.find_clauses(text)
         for cs in found_clauses:
             value = self.data_source.get_additional_data(cs.var)
+            if self.is_not_primitive(value):
+              if self.contains_any_letter_except_s(cs.fmt):
+                msg = (f"ERROR: {cs.var} is {type(value)}, not a primitive number " 
+                       f"so only string can be used in format string (you gave: {cs.fmt})."
+                       f" Tip: Use alias_name[index] to use individual array values in"
+                       f" your label text: field."
+                       )
+                raise RuntimeError (msg)
+              value = str(value) # Must convert non-primitives to string
             raw_string = "{myval:" + cs.fmt + "}"  # 2 decimal places
             result = raw_string.format(myval=value)
             text = text.replace('{'+cs.clause+'}', result)
@@ -232,50 +244,73 @@ class VirgoLabel():
         self.set_text(text)
 
     @staticmethod
-    def find_clauses(text):
-        """Split a string in {<variable>:<format>} notation into clauses
+    def contains_any_letter_except_s(input_string):
+        # This checks if any character in the string, when lowercased, is not 's'
+        return any(char.lower() != 's' for char in input_string if char.isalpha())
 
+    @staticmethod
+    def is_not_primitive(variable):
+        """
+        Checks if a variable is a 'non-primitive' (mutable/compound) type.
+        """
+        # Define a set of "primitive" (immutable) types
+        primitive_types = (int, float, str, bool, type(None))
+        
+        # Check if the variable is NOT an instance of any of the primitive types
+        if not isinstance(variable, primitive_types):
+            return True
+        else:
+            return False
+
+    @staticmethod
+    def find_clauses(text):
+        """Split a string in {<variable>@<time>:<format>} notation into clauses
+    
         Given a string text, find all python format strings enclosed
         in curly braces and return a list of ClauseSplit instances
-        representing the clause, variable, and format content
+        representing the clause, variable, time, and format content
         separately.
          Example 1:
-          text = "hello {myvar[0]}"
-          split_format_strings(text) = [ cs0 ]
+          text = "hello {myvar[0]@t1}"
+          find_clauses(text) = [ cs0 ]
             where cs0 is a ClauseSplit with members:
-              clause = myvar[0]
+              clause = myvar[0]@t1
               var    = myvar[0]
+              time   = t1
               fmt    = ''
          Example 2:
-          text = "hello {myvar[0]:.2}"
-          split_format_strings(text) = [ cs0 ]
+          text = "hello {myvar[0]@t1:.2}"
+          find_clauses(text) = [ cs0 ]
             where cs0 is a ClauseSplit with members:
-              clause = myvar[0]:.2
+              clause = myvar[0]@t1:.2
               var    = myvar[0]
+              time   = t1
               fmt    = '.2'
          Example 3:
-          text = "hello {myvar[0]:.2} {myvar[1]:.1f}"
-          split_format_strings(text) = [ cs0, cs1 ]
+          text = "hello {myvar[0]@t1:.2} {myvar[1]@t2:.1f}"
+          find_clauses(text) = [ cs0, cs1 ]
             where cs0 is a ClauseSplit with members:
-              clause = myvar[0]:.2
+              clause = myvar[0]@t1:.2
               var    = myvar[0]
+              time   = t1
               fmt    = '.2'
             and cs1 is a ClauseSplit with members:
-              clause = myvar[1]:.1f
+              clause = myvar[1]@t2:.1f
               var    = myvar[1]
-              fmt    = '.1f
-
+              time   = t2
+              fmt    = '.1f'
+    
         A ClauseSplit class is local to the scope of this function and
-        contains the original clause found, the variable part, and the
-        format part. See class definition below.
-
+        contains the original clause found, the variable part, the time
+        part, and the format part. See class definition below.
+    
         Args:
             text (str): String to search for clauses
-
+    
         Returns:
             list: List of ClauseSplit class instances resulting from the
                   split of one or more clauses
-
+    
         Raises:
             RuntimeError: If parsing of text fails
         """
@@ -284,27 +319,48 @@ class VirgoLabel():
             def __init__(self, clause):
                 self.clause = clause
                 self.var = ''
+                self.time = ''
                 self.fmt = ''
-
+    
         clauses = []
         found_fstrings = re.findall(r'\{(.*?)\}', text)
         if found_fstrings:
             # replace all {} fields with values from the data source
             for fstring in found_fstrings:
                 cs = ClauseSplit(fstring)
-                # Grab the value of the variable from the data source
-                cs.fmt = ''
-                sp = fstring.split(':')
-                if len(sp) == 1:
-                    cs.var = sp[0]
-                elif len(sp) == 2:
-                    var, fmt = sp
-                    cs.var = var
+                
+                # First split by ':' to separate format from var@time
+                colon_split = fstring.split(':')
+                if len(colon_split) == 1:
+                    # No format specified
+                    var_time_part = colon_split[0]
+                    cs.fmt = ''
+                elif len(colon_split) == 2:
+                    # Format specified
+                    var_time_part, fmt = colon_split
                     cs.fmt = fmt
                 else:
                     msg = (f"ERROR: Bad formatting in text: {text}. Simple "
                            "variable aliases and python format strings are "
                            "supported but mathematical operations are not")
                     raise RuntimeError(msg)
+                
+                # Now split var_time_part by '@' to get variable and time
+                at_split = var_time_part.split('@')
+                if len(at_split) == 1:
+                    # No time specified (backward compatibility)
+                    cs.var = at_split[0]
+                    cs.time = ''
+                elif len(at_split) == 2:
+                    # Time specified
+                    var, time = at_split
+                    cs.var = var
+                    cs.time = time
+                else:
+                    msg = (f"ERROR: Bad formatting in text: {text}. Expected "
+                           "format {{variable@time:format}} but found multiple "
+                           "'@' symbols in clause")
+                    raise RuntimeError(msg)
+                
                 clauses.append(cs)
-        return(clauses)
+        return clauses

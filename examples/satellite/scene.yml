@@ -147,9 +147,9 @@ actors:
         scale: 0.5
         text: |
           Inertial velocity (m/s):
-            x: {sat_vel[0]:<10.5f}
-            y: {sat_vel[1]:<10.5f}
-            z: {sat_vel[2]:<10.5f}
+            x: {sat_vel[0]@time:<10.5f}
+            y: {sat_vel[1]@time:<10.5f}
+            z: {sat_vel[2]@time:<10.5f}
         pos: [0, -0.7, 5.0]
   # RCS Jet positions and force directions in the 
   # body frame taken from Satellite::initialize()

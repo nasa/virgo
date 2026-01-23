@@ -24,9 +24,9 @@ data_source:
     # The time alias definition for the pendulum_small logging group. This maps
     # the 1st column of log_pendulum.csv to a VIRGO data alias named 'ball_time_small'
     ball_time_small:
-      group: pendulum_small # Data recording group e.g. 'pendulum' in log_pendulum.csv
-      var: time       # Name given to time first column which must represent time
-    ball_pos:  # User-defined VIRGO alias for position of the pendulum ball
+      group: pendulum_small # Data recording group
+      var: time    # Name given to time first column which must represent time
+    ball_pos:      # User-defined VIRGO alias for position of the pendulum ball
       group: pendulum # Data recording group e.g. 'pendulum' in log_pendulum.csv
       # Data recording variables (columns) in CSV file. x-position is pos[0]
       # y-position is pos[1], and z-position is pos[2]
@@ -102,6 +102,13 @@ actors:
     pos:   [0.0, 0.0, 0.0] # initial position in scene
     ypr:   [0.0, 0.0, 0.0] # initial pitch-yaw-roll rotation in scene
     parent: attachment2
+    labels:
+      ball_position:
+        text: "position: {small_ball_pos@ball_time_small:<30} m"
+        scale: 0.05
+        when: picked
+        ypr: [0.0, 0.0, 90.0]
+        pos: [0.1, 0, 0]
     trail:
       enabled: 1
       color: [0.0, 0.0, 1.0]  # Color of trail (green)

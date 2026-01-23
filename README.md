@@ -296,10 +296,16 @@ actors:     # The dictionary which holds all actors in the scene. The
                  #   [red, green, blue] values of the color of this label
                  #   Defaults to white.
         text:    # Required string of text to be displayed. This text can contain
-                 #   f-string notation referencing data_source aliases, for example
-                 #   "x velocity is {sat_vel[0]:<10.5f}" defines a string using
-                 #   data specific to sat_vel. At runtime, the value of sat_vel[0]
-                 #   will be queried from the data source and shown in the label
+                 #   f-string notation referencing data_source aliases of the
+                 #   requrired format {var_alias@time_alias}, for example
+                 #   "x velocity is {sat_vel[0]@sat_time:<10.5f}" defines a
+                 #   string using data specific to the sat_vel data source
+                 #   alias at the sat_time data source alias. At runtime, the
+                 #   value of sat_vel[0] closest to world time will be queried
+                 #   from the data source and shown as text in the label. If
+                 #   referencing the an alias that is an array, the format spec
+                 #   of the f-string may not contain numerical output types as
+                 #   non-primitive aliases are forcibly converted to string
         pos:    # Optional list of 3 floats defining the position offset of
                 #   the label text relative to this actor's node. If faces_camera
                 #   is 1, pos is expressed in world coordinates. If faces_camera

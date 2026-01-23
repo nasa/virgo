@@ -137,7 +137,12 @@ class VirgoDataPlayback(VirgoScene):
         for cs in split_fstrings_list:
             #import pdb; pdb.set_trace()
             if not self.vdl.does_alias_exist(alias=cs.var):
-                msg = (f"ERROR: alias {cs.var} cannot be found in self.vdl!")
+                msg = (f"ERROR: variable alias {cs.var} cannot be found in '{label_text}'"
+                       f", see documentation for accepted label variable format")
+                raise RuntimeError (msg)
+            if not self.vdl.does_alias_exist(alias=cs.time):
+                msg = (f"ERROR: time alias {cs.time} cannot be found in '{label_text}'"
+                       f", see documentation for accepted label variable format")
                 raise RuntimeError (msg)
             # TODO: this is a loose check that could break, consider adding brace
             # dimension to ClauseSplit which could be queried here robustly
@@ -146,6 +151,6 @@ class VirgoDataPlayback(VirgoScene):
             else:
                 additional_datas[cs.var] = self.vdl.get_alias_datas(alias=cs.var)
 
-            times = self.vdl.get_alias_datas(alias='time')
+            times = self.vdl.get_alias_datas(alias=cs.time)
             vds_for_variables = VirgoDataFileSource(times=times, **additional_datas)
         return  vds_for_variables

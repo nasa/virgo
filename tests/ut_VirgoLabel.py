@@ -15,6 +15,7 @@ def suite():
     """Create test suite from test cases here and return"""
     suites = []
     suites.append(unittest.TestLoader().loadTestsFromTestCase(VirgoLabelTestCase))
+    suites.append(unittest.TestLoader().loadTestsFromTestCase(VirgoLabelStaticFunctionsTestCase))
     return (suites)
 
 class VirgoLabelTestCase(VisualizableTestCase):
@@ -61,6 +62,11 @@ class VirgoLabelTestCase(VisualizableTestCase):
                   self.label3.get_follower()]
         #self.vis(actors=actors, show_origin=1, show_grid=0)
 
+
+class VirgoLabelStaticFunctionsTestCase(unittest.TestCase):
+    def setUp(self):
+        pass
+
     def test_find_clauses(self):
         """
         Test the find_clauses static method
@@ -71,24 +77,30 @@ class VirgoLabelTestCase(VisualizableTestCase):
         self.assertEqual(clauses, []) # Returns empty string
 
         # One special curly brace {} clause with no formatting
+        # and missing the time part of the clause
         text = "hello {myvar[0]}"
         clauses = VirgoLabel.find_clauses(text)
         # Returns a list of one tuple with empty string as 2nd value
         self.assertEqual(clauses[0].var, 'myvar[0]')
+        self.assertEqual(clauses[0].time, '')
         self.assertEqual(clauses[0].fmt, '')
 
         # One special curly brace {} clause with formatting
-        text = "hello {myvar[0]:.2f}"
+        # and the time part of the clause
+        text = "hello {myvar[0]@mytime:.2f}"
         clauses = VirgoLabel.find_clauses(text)
         # Returns a list of one tuple
         self.assertEqual(clauses[0].var, 'myvar[0]')
+        self.assertEqual(clauses[0].time, 'mytime')
         self.assertEqual(clauses[0].fmt, '.2f')
 
         # Two special curly brace {} clauses both with formatting
-        text = "hello {myvar[0]:.2f} {myvar[1]:04x}"
+        text = "hello {myvar[0]@mytime1:.2f} {myvar[1]@mytime2:04x}"
         clauses = VirgoLabel.find_clauses(text)
         # Returns a list of two tuples
         self.assertEqual(clauses[0].var, 'myvar[0]')
+        self.assertEqual(clauses[0].time, 'mytime1')
         self.assertEqual(clauses[0].fmt, '.2f')
         self.assertEqual(clauses[1].var, 'myvar[1]')
+        self.assertEqual(clauses[1].time, 'mytime2')
         self.assertEqual(clauses[1].fmt, '04x')

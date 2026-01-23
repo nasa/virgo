@@ -101,7 +101,7 @@ actors:
       alt:
         scale: 2.0
         text: |
-          altitude: {lv_alt:<10.0f} meters
+          Altitude: {lv_alt@time:<10.0f} meters
           Note vehicle orientation not yet
           modeled
         pos: [-8.0, 0.0, 20.0]

@@ -70,8 +70,14 @@ class VirgoSceneNode():
 
         # Opacity (0-1) of the actor when this node gets created
         self._initialized_opacity = None
+        # Full X,Y,Z scale of actor when this instance is created
+        self._initialized_scale = None
+        # User defined scale (one float) of the associated with this node
+        self.user_scale =  1.0
         if self.actor:
             self._initialized_opacity = self.actor.GetProperty().GetOpacity()
+            self._initialized_scale = self.actor.GetScale()
+            
         # Opacity (0-1) of this actor before manipulating it to a new value
         self._last_opacity = self._initialized_opacity
         # Opacity an actor must be above to trigger reduced opacity when showing
@@ -180,6 +186,13 @@ class VirgoSceneNode():
         Set value of internally tracked currently picked flag
         """
         self.transpose_dcm = bool(value)
+
+    def set_user_scale(self, us):
+        """
+        Set the user scale for this node. This is a single float
+        multiplier used for scaling the size of nodes
+        """
+        self.user_scale = us
 
     def set_highlight_color(self, color):
         """
@@ -339,11 +352,8 @@ class VirgoSceneNode():
                     self.report()
 
             # Pose the node with this data
-            self.set_pose(pos=pos, dcm=rot, transpose_dcm=self.transpose_dcm, scale=scale)
-
-            # if specified, adjust the opacity of the actor
-            if opacity != None:
-                self.actor.GetProperty().SetOpacity(float(opacity))
+            self.set_pose(pos=pos, dcm=rot, transpose_dcm=self.transpose_dcm,
+                          scale=scale, opacity=opacity)
 
         if self.trail:
             self.trail.update(self.get_world_position())
@@ -398,24 +408,29 @@ class VirgoSceneNode():
         print(f"==== END    VirgoSceneNode Report for Node {self.name} ===================")
 
         
-    def set_pose(self, pos=None, ypr=None, dcm=None, transpose_dcm=True, scale=None):
+    def set_pose(self, pos=None, ypr=None, dcm=None, transpose_dcm=True,
+                 scale=None, opacity=None):
         """
         Manipulate self.local_transform to provide position, rotation, and
         scale adjustments to this Node's self.assembly.
 
         Args:
-          pos: X,Y,Z position vector describing where to move this node relative to
+          pos: [X,Y,Z] position vector describing where to move this node relative to
                it's parent (or world coordinates if this node has no parent)
-          ypr: Yaw-Pitch-Roll ordered intrinsic Euler rotation to apply to this node
+          ypr: [Yaw,Pitch,Roll] ordered intrinsic Euler rotation to apply to this node
           dcm: 3x3 Direction Cosine Matrix representing the rotation to be applied
                to this node. This can be a list of lists but will be converted to
                a numpy matrix in this function if it isn't already. Note that ypr
                and dcm are mutually exclusive and only one can be specified.
+          scale: [X,Y,Z] floating point mulitplier describing how to scale the
+               assembly of this node in the X,Y,Z directions. Defaults to None.
           transpose_dcm: Boolean for whether dcm should be transposed before passed
                into VTK's matrix.SetElement() function. VTK expects active 
                transformations but aerospace and robotics applications often provide
                passive transformations to describe coordinate frame rotations. Set
                to false if you are using active rotation matrices
+          opacity: Single floating point value between 0.0-1.0 describing the opacity
+               to be applied this node's actor
         """
         if ypr is not None and dcm is not None:
             raise ValueError("Cannot specify both rot and dcm.")
@@ -451,9 +466,24 @@ class VirgoSceneNode():
             self.local_transform.RotateY(ry)
             self.local_transform.RotateX(rx)
 
-
         if scale is not None:
+            self.set_scale(scale)
+
+        # if specified, adjust the opacity of the actor
+        if opacity != None:
+            self.actor.GetProperty().SetOpacity(float(opacity))
+
+    def set_scale(self, scale):
+        """
+        Args:
+          scale: [X,Y,Z] floating point mulitplier describing how to scale the
+               assembly of this node in the X,Y,Z directions, OR a single
+               float which will be applied equally in all directions.
+        """
+        if isinstance(scale, list) or isinstance(scale, tuple):
             self.local_transform.Scale(*scale)
+        elif isinstance(scale, float):
+            self.local_transform.Scale(scale, scale, scale)
 
     def get_world_position(self, local_point=(0.0, 0.0, 0.0)):
         """
@@ -693,6 +723,8 @@ class VirgoSceneNodeVector(VirgoSceneNode):
     """
     def __init__(self, name, actor=None):
         super().__init__(name=name, actor=actor)
+        self.VERY_SMALL = 1e-10
+        self.mode = 'unit'
 
     def update(self, world_time):
         """
@@ -702,8 +734,8 @@ class VirgoSceneNodeVector(VirgoSceneNode):
         Overrides base class update() method
         """
         # Update any labels associated with this node
-        for label in self.labels:
-            self.labels[label].update(world_time)
+        if self.labels:
+            self.update_labels(world_time)
 
         if not self.data_source:
             return
@@ -711,38 +743,65 @@ class VirgoSceneNodeVector(VirgoSceneNode):
         # Query self.data_souce for the data we need to drive the node
         self.data_source.set_current_time(world_time)
         pos  = self.data_source.get_current_position()
-        self.set_vector_pose(vec=pos)
+        opacity = self.data_source.get_current_opacity()
+        self.set_vector_pose(vec=pos, opacity=opacity)
         if self.verbosity > 3:
             print(f"In VirgoSceneNodeVector.update() with world_time: {world_time} and")
             print(f"  data_source pos:   {pos}")
             if self.verbosity > 4:
                 self.report()
 
-    def set_vector_pose(self, vec):
+
+    def set_vector_pose(self, vec, opacity=None):
         """
         Pose (orient) self.local_transform according to the x,y,z values
         in vector vec. This is the only way in VTK to take an arrow mesh
-        and orient it along a vector's direction
+        and orient it along a vector's direction. Also perform other
+        actor actions like applying scale and opacity
+        Args:
+          vec: [X,Y,Z] position vector describing where the tip of the vector
+               is relative to it's parent (or world coords if this node has
+               no parent)
+          opacity: Single floating point value between 0.0-1.0 describing the
+               opacity to be applied this node's actor
         """
         # Normalize vector to get direction
         v = np.array(vec, dtype=float)
         length = np.linalg.norm(v)
-        if length == 0:
-            raise ValueError(f"Zero-length vector for {self.name} cannot be displayed.")
-        direction = v / length
-    
-        # Compute rotation between X-axis and target direction
-        x_axis = np.array([1,0,0])
-        axis = np.cross(x_axis, direction)
-        angle = np.degrees(np.arccos(np.clip(np.dot(x_axis, direction), -1, 1)))
-    
-        self.local_transform.Identity()
-        self.local_transform.PostMultiply()
-        if np.linalg.norm(axis) > 1e-6:
-            self.local_transform.RotateWXYZ(angle, *axis)
-        scale = self.data_source.get_current_scale()
-        if scale is not None:
-            self.local_transform.Scale(*scale)
+
+        # Determine if we have a zero magnitude vector
+        zero_vector = False
+        if length < self.VERY_SMALL:
+            zero_vector = True
+        
+        if not zero_vector:
+            # Compute the unit vector direction
+            direction = v / length
+            # Compute rotation between X-axis and target direction
+            # (vectors always point in +X with no rotation)
+            x_axis = np.array([1,0,0])
+            axis = np.cross(x_axis, direction)
+            angle = np.degrees(np.arccos(np.clip(np.dot(x_axis, direction), -1, 1)))
+            # Start with identity matrix - no rotation, position, or scaling
+            self.local_transform.Identity()
+            # Scale the vector depending on which mode is selected
+            if self.mode == 'absolute':
+                self.set_scale(length*self.user_scale)
+            elif self.mode == 'unit':
+                self.set_scale(self.user_scale)
+            elif self.mode == 'custom':
+                self.custom_scale(vec)
+            self.local_transform.PostMultiply()
+            # Rotate the node by this rotation
+            if np.linalg.norm(axis) > 1e-6:
+                self.local_transform.RotateWXYZ(angle, *axis)
+
+            # If specified, adjust the opacity of the actor
+            if opacity != None:
+                self.actor.GetProperty().SetOpacity(float(opacity))
+        else:
+            self.set_scale([0.0, 0.0, 0.0])
+            self.local_transform.Scale([0.0, 0.0, 0.0])
 
     def get_world_vector(self):
         """
@@ -765,3 +824,19 @@ class VirgoSceneNodeVector(VirgoSceneNode):
         vec_world_pos = list(vec_world_pos / length)
         return(vec_world_pos)
     
+    def set_mode(self, value):
+        """
+        Set the display mode for this vector. Values are 'unit' or 'absolute' as
+        enforced by VirgoDictVerifier.
+        """
+        self.mode = value
+
+    def custom_scale(self, vec):
+        """
+        Abstract function that allows subclasses to specify how to scale
+        this vector
+
+        Args:
+          vec: the vector from set_pose()
+        """
+        pass

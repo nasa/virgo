@@ -1662,7 +1662,6 @@ class VirgoScene:
         """
         Creates a VirgoActor with a VIRGO_PREFAB:arrow mesh
         from the information in the vector_scene_dict
-        TODO: need checking for YAML field correctness!
         """
         # The vector fields are similar to actor, but mesh isn't repected
         # Force the arrow mesh then create the vector actor
@@ -1706,10 +1705,16 @@ class VirgoScene:
         node = _class(name=name, actor=actor)
         node.set_highlight_color(self.highlight_color)
         parent_name=None
+        if 'scale' in actor_scene_dict and actor_scene_dict['scale'] != None:
+          node.set_user_scale(actor_scene_dict['scale'])
         if 'layer' in actor_scene_dict and actor_scene_dict['layer'] != None:
           node.set_layer(actor_scene_dict['layer'])
         if 'parent' in actor_scene_dict and actor_scene_dict['parent'] != None:
           parent_name=actor_scene_dict['parent']
+
+        if issubclass(_class, VirgoSceneNodeVector):
+          if 'mode' in actor_scene_dict and actor_scene_dict['mode'] != None:
+            node.set_mode(actor_scene_dict['mode'])
 
         if 'axes' in actor_scene_dict and  actor_scene_dict['axes'] != None: 
           if ('affect_opacity' in actor_scene_dict['axes'] and 
@@ -1833,6 +1838,9 @@ class VirgoScene:
                 pos=self.scene['frames'][f]['pos']
             if 'ypr' in self.scene['frames'][f]:
                 ypr=self.scene['frames'][f]['ypr']
+            # A frame's origin is moved to the pos/ypr given. Note that this
+            # is different than the pos/ypr of an actor which is a static offset
+            # of the mesh relative to it's node.
             node.set_pose(pos=pos, ypr=ypr)
             nodes_to_add.append( (node, parent_name) )
 

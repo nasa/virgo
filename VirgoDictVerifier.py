@@ -1,4 +1,4 @@
-import math
+import math, re
 from typing import Optional, List, Dict, Any
 from enum import Enum
 from pydantic import BaseModel, Field, ValidationError, field_validator, model_validator
@@ -24,6 +24,9 @@ VIRGO_DEFAULT_LIGHTING_LIGHT_AMBIENT = 0.7
 VIRGO_DEFAULT_PICKER_TOLERANCE = 5e-7
 VIRGO_DEFAULT_LABEL_SCALE = 1.0
 VIRGO_DEFAULT_LABEL_COLOR = [1.0, 1.0, 1.0]
+VIRGO_DEFAULT_VECTOR_TIP_LENGTH = 0.35
+VIRGO_DEFAULT_VECTOR_TIP_RADIUS = 0.1
+VIRGO_DEFAULT_VECTOR_SHAFT_RADIUS = 0.03
 
 class PlaybackMode(str, Enum):
     PAUSED = "PAUSED"
@@ -44,6 +47,10 @@ class RenderingLayers(str, Enum):
     foreground = "foreground"
     midground = "midground"
     background = "background"
+class VectorMode(str, Enum):
+    unit = 'unit'
+    absolute = 'absolute'
+    custom = 'custom'
 
 # Complex types defined here
 RGBColor = list[float, float, float]
@@ -261,9 +268,13 @@ class FrameSchema(ActorBaseSchema):
         return data
 
 class VectorSchema(ActorBaseSchema):
-    tip_length:   Optional[float]  = None
-    tip_radius:   Optional[float]  = None
-    shaft_radius: Optional[float] = None
+    tip_length:   Optional[float] = VIRGO_DEFAULT_VECTOR_TIP_LENGTH
+    tip_radius:   Optional[float] = VIRGO_DEFAULT_VECTOR_TIP_RADIUS
+    shaft_radius: Optional[float] = VIRGO_DEFAULT_VECTOR_SHAFT_RADIUS
+    mode: Optional[VectorMode] = Field(
+        default=VectorMode.unit,
+        description="Vector mode"
+    )
     driven_by: Optional[VectorDrivenBySchema] = None
 
     # A vector is just an actor with arrow as mesh
@@ -449,6 +460,10 @@ class SceneSchema(BaseModel):
           return self.frames[name]
         return None
 
+    def strip_brackets(self, text):
+        # Pattern: match '[' and everything after it until the end of the string
+        return re.sub(r'\[.*$', '', text)
+
     @model_validator(mode="after")
     def validate_actor_driven_by(self):
       """
@@ -467,19 +482,19 @@ class SceneSchema(BaseModel):
           raise ValueError(
             f"node {a} cannot have driven_by: time: {thedict.driven_by.time} as it is not "
             f"a valid data source alias. Valid data source aliases are {dsa}")
-        if thedict.driven_by.pos and thedict.driven_by.pos not in self.data_source.trickpy:
+        if thedict.driven_by.pos and self.strip_brackets(thedict.driven_by.pos) not in self.data_source.trickpy:
           raise ValueError(
             f"node {a} cannot have driven_by: pos: {thedict.driven_by.pos} as it is not "
             f"a valid data source alias. Valid data source aliases are {dsa}")
-        if thedict.driven_by.rot and thedict.driven_by.rot not in self.data_source.trickpy:
+        if thedict.driven_by.rot and self.strip_brackets(thedict.driven_by.rot) not in self.data_source.trickpy:
           raise ValueError(
             f"node {a} cannot have driven_by: rot: {thedict.driven_by.rot} as it is not "
             f"a valid data source alias. Valid data source aliases are {dsa}")
-        if thedict.driven_by.scale and thedict.driven_by.scale not in self.data_source.trickpy:
+        if thedict.driven_by.scale and self.strip_brackets(thedict.driven_by.scale) not in self.data_source.trickpy:
           raise ValueError(
             f"node {a} cannot have driven_by: scale: {thedict.driven_by.scale} as it is not "
             f"a valid data source alias. Valid data source aliases are {dsa}")
-        if thedict.driven_by.opacity and thedict.driven_by.opacity not in self.data_source.trickpy:
+        if thedict.driven_by.opacity and self.strip_brackets(thedict.driven_by.opacity) not in self.data_source.trickpy:
           raise ValueError(
             f"node {a} cannot have driven_by: opacity: {thedict.driven_by.opacity} as it is not "
             f"a valid data source alias. Valid data source aliases are {dsa}")

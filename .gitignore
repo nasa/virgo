@@ -4,4 +4,5 @@ tests/*.png
 examples/entry/*.csv
 examples/launch/*.csv
 examples/pendulums/*.csv
+examples/cannon/*.csv
 .venv

@@ -339,30 +339,48 @@ actors:     # The dictionary which holds all actors in the scene. The
             #   scenes with large and small objects. Default: 'foreground'
 
 frames:     # The dictionary which holds all frames in the scene. A frame is
-            #   an actor with no mesh geometry - typically an oriented x-y-z
-            #   reference frame located somewhere in the scene.
+            #   an actor with no mesh geometry - typically an oriented X-Y-Z
+            #   reference frame located somewhere in the scene or relative
+            #   to another actor.
   my_frame: # User-chosen name for frame which acts as the key for this
-            #   individual frames's sub-dict. All fields supported by actors:
-            #   are also supported by frames (except trail, scale, and mesh),
-            #   so refer to the versbose sub-dict information in the actors:
-            #   section above
+            #   individual frames's sub-dict. Most fields supported by actors:
+            #   are also supported by frames with some caveats explained in
+            #   this section.  trail: scale: and mesh: are not supported and
+            #   pos: and ypr: have a slightly different meaning explained
+            #   below. 
+    pos:    # Optional list of 3 floats defining the position offset of
+            #   the frame relative to it's parent, or world coordinates if
+            #   no parent given. This is applied once when the scene starts
+            #   and defaults to [0, 0, 0]
+    ypr:    # Optional list of 3 floats defining the yaw-pitch-roll offset
+            #   in degrees of the frame relative to it's parent, or world
+            #   coordinates if no parent given. This list is a Z,Y,X ordered
+            #   intrinsic Euler rotation. This is applied once when the scene
+            #   starts and defaults to [0, 0, 0]
 
 vectors:    # The dictionary which holds all vectors in the scene. A vector is
             #   an actor whose mesh is automatically set to an 3D arrow. 
   my_vec:   # User-chosen name for vector which acts as the key for
             #   this individual vector's sub-dict. The fields supported by vectors
-            #   are identical to that of the actors: section above with a few
+            #   are similar to that of the actors: section above with a few
             #   additions, limitations, and exceptions noted below.
             #   The mesh: and trail: fields are not supported for vectors
-            # Additions of vectors (related to style of the vector arrow):
+            # Parameters specific to vectors (related to style of the vector arrow):
     tip_length:   # Optional percentage of total vector length occupied by tip
     tip_radius:   # Optional radius of cone base relative to total vector length
     shaft_radius: # Optional radius of cylinder forming vector shaft relative 
                   #   to total vector length
-            # Limitations of vectors compared to actors:
+    mode:   # Optional display mode: 'unit', 'absolute', or custom. When 
+            #   'unit' the vector's size will be a unit vector scaled by the
+            #   scale: parameter for this vector. When 'absolute', the vector's
+            #   size will be shown as the true X,Y,Z components of the
+            #   driven_by: pos: parameter multiplied by the scale: parameter,
+            #   or just the scale: paramemter if no driven_by: pos: is given
+            #   'custom' allows classes deriving from VirgoSceneNodeVector
+            #   to define their own methodology for scaling the vector
+            # Limitations/assumptions of vectors compared to actors:
     driven_by:   # The driven_by: sub-dict is the same as the actors: section
-                 #   described above, but only pos: is supported and rot: is
-                 #   not used.
+                 #   described above, but only time: and pos: are supported
       time: time    # The time: key is required. It is linked to the time: alias
       pos: sat_pos  # The pos: key represents this vector's X,Y,Z components
                     #   relative to it's parent, or world coordinates if no
@@ -372,7 +390,8 @@ vectors:    # The dictionary which holds all vectors in the scene. A vector is
                     #   would draw a vector of length 1.0 in the direction of
                     #   the satellite's position, with the vector/arrow base
                     #   located at world coordinate origin. Tip: use scale: to
-                    #   make the vector appear larger in the scene
+                    #   make the vector appear larger in the scene and use
+                    #   mode: to switch between unit and absolute vectors
 
 lighting:        # Optional dictionary which holds all lighting configuration
   start_mode:    # Optional lighting mode the scene should start with. 

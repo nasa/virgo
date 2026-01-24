@@ -199,7 +199,7 @@ class VirgoDataFileSource(VirgoDataSource):
                            f"but got {type(self._times)} instead")
         # Ensure self._times list contains only doubles
         for i, t in enumerate(self._times):
-          if not isinstance(t, float):
+          if not isinstance(t, float) and not isinstance(t, int):
             raise ValueError(f"Expected {self.name}'s self._times[{i}] to be a double "
                              f"but got {type(self._times[i])} instead")
         # Ensure self._times list of doubles is sorted, lowest to highest

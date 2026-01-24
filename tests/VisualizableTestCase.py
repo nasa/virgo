@@ -1,4 +1,5 @@
 import os, sys, unittest, vtk, inspect
+import numpy as np
 
 thisFileDir = os.path.dirname(os.path.abspath(inspect.getsourcefile(lambda:0)))
 virgo_dir=os.path.abspath(os.path.join(thisFileDir, '../'))
@@ -28,6 +29,15 @@ class VisualizableTestCase(unittest.TestCase):
 
     def tearDown(self):
         pass
+
+    @staticmethod
+    def vtk_matrix_to_numpy_array(vtk_matrix):
+        """A function to make it easy to compare a vtkMatrix to numpy array"""
+        numpy_array = np.identity(4) 
+        for i in range(4):
+          for j in range(4):
+            numpy_array[i, j] =  vtk_matrix.GetElement(i, j)
+        return(numpy_array)
 
 
     def get_grid_axes(self, bounds=[-5, 5, -5, 5, -5, 5]):

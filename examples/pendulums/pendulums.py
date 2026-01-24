@@ -55,7 +55,7 @@ class PendulumExample:
         g = 9.81
         theta0, omega, Omega = 0.5236, math.sqrt(g/L), 0.05
         with open(logfile, 'w') as f:
-            f.write('time (s), pos[0] (m), pos[1] (m), pos[2] (m)\n')
+            f.write('time {s}, pos[0] {m}, pos[1] {m}, pos[2] {m}\n')
             for t in [i/rate for i in range(num_data_points)]:
                 theta = theta0 * math.cos(omega * t)
                 phi = Omega * t

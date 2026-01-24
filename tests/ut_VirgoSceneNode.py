@@ -1,13 +1,15 @@
 import os, sys, inspect
 import unittest
 import numpy as np
+import math
+from numpy.testing import assert_allclose
 
 # Add path to virgo module
 thisFileDir = os.path.dirname(os.path.abspath(inspect.getsourcefile(lambda:0)))
 virgo_dir=os.path.abspath(os.path.join(thisFileDir, '../'))
 sys.path.append(virgo_dir)
 from VirgoActor import VirgoActor
-from VirgoNode import VirgoSceneNode
+from VirgoNode import VirgoSceneNode, VirgoSceneNodeVector
 meshes_dir=os.path.join(virgo_dir, 'meshes')
 tests_dir=os.path.join(virgo_dir, 'tests')
 from VisualizableTestCase import VisualizableTestCase
@@ -302,3 +304,119 @@ class VirgoSceneNodeTestCase(VisualizableTestCase):
         self.teapot1.initialize()
         # Visually confirmed here, TODO: need test criteria
         #self.vis(actors=self.teapot1, show_origin=1, show_grid=1)
+
+class VirgoSceneNodeVectorTestCase(VisualizableTestCase):
+
+    def setUp(self):
+        # Actors to be used in node construction
+        self.arrow0 = VirgoActor(name='arrow0', mesh='VIRGO_PREFAB:arrow')
+        self.arrow0.initialize()
+        # Nodes to test with
+        self.node0 = VirgoSceneNodeVector(name='myvec0', actor=self.arrow0)
+
+    def tearDown(self):
+      pass
+
+    def test_construction(self):
+        """
+        Simple construction assertions
+        """
+        # The matrix we expect inside local_transform after construction
+        default_matrix = np.array([
+          [1.0, 0.0, 0.0,  0.0],
+          [0.0, 1.0, 0.0,  0.0],
+          [0.0, 0.0, 1.0,  0.0],
+          [0.0, 0.0, 0.0,  1.0],
+        ])
+        for i in range(4):
+          for j in range(4):
+            self.assertEqual(default_matrix[i, j], self.node0.local_transform.GetMatrix().GetElement(i, j))
+
+        # TBD more assertions go here
+        #self.vis(actors=self.node0.assembly, show_origin=1, show_grid=1)
+    
+    def test_set_vector_pose_x_only(self):
+        """
+        Test a set_vector_pose() call that points the vector along X
+        which is no transformation
+        """
+        self.node0.set_vector_pose(vec=[1.0, 0.0, 0.0])
+        # vect points in X dir but is still located at 0,0,0
+        expected_position = np.array([0.0, 0.0, 0.0])
+        actual_position = self.node0.get_world_position()
+        assert_allclose(expected_position, actual_position, atol=1e-15)
+        expected_matrix = np.array([
+          [1.0, 0.0, 0.0,  0.0],
+          [0.0, 1.0, 0.0,  0.0],
+          [0.0, 0.0, 1.0,  0.0],
+          [0.0, 0.0, 0.0,  1.0],
+        ])
+        #self.vis(actors=self.node0.assembly, show_origin=1, show_grid=1)
+        actual_matrix = self.vtk_matrix_to_numpy_array(self.node0.local_transform.GetMatrix())
+        assert_allclose(expected_matrix, actual_matrix, atol=1e-15)
+
+    def test_set_vector_pose_xyz(self):
+        """
+        Test a set_vector_pose() call that moves the vector to point to
+        [1,1,1]
+        """
+        self.node0.set_vector_pose(vec=[1.0, 1.0, 1.0])
+        expected_position = np.array([0.0, 0.0, 0.0])
+        actual_position = self.node0.get_world_position()
+        assert_allclose(expected_position, actual_position, atol=1e-15)
+
+        # Manually verified, rotating an X-pointing vector to [1,1,1]
+        expected_matrix = np.array([
+           [ 0.57735 , -0.57735 , -0.57735 ,  0.0  ],
+          [  0.57735 ,  0.788675, -0.211325,  0.0  ],
+          [  0.57735 , -0.211325,  0.788675,  0.0  ],
+          [  0.0     ,  0.0     ,  0.0     ,  1.0  ]])
+        actual_matrix = self.vtk_matrix_to_numpy_array(self.node0.local_transform.GetMatrix())
+        #self.vis(actors=self.node0.assembly, show_origin=1, show_grid=1)
+        assert_allclose(actual_matrix, expected_matrix, rtol=1e-5)
+
+    def test_set_vector_pose_unit_mode(self):
+        """
+        Test a set_pose() call on given a scale of 2.0 in unit mode
+        """
+        self.node0.set_mode('unit')
+        self.node0.set_user_scale(2.0)
+        self.node0.set_vector_pose(vec=[1.0, 0.0, 0.0])
+        # The matrix we expect inside local_transform after construction
+        expected_matrix = np.array([
+          [2.0, 0.0, 0.0,  0.0],
+          [0.0, 2.0, 0.0,  0.0],
+          [0.0, 0.0, 2.0,  0.0],
+          [0.0, 0.0, 0.0,  1.0],
+        ])
+        #self.vis(actors=self.node0.assembly, show_origin=1, show_grid=1)
+        actual_matrix = self.vtk_matrix_to_numpy_array(self.node0.local_transform.GetMatrix())
+        assert_allclose(expected_matrix, actual_matrix, atol=1e-15)
+
+    def test_set_vector_pose_absolute_mode(self):
+        """
+        Test a set_pose() call on given a scale of 1.0 in absolute mode
+        """
+        self.node0.set_mode('absolute')
+        self.node0.set_user_scale(1.0)
+        self.node0.set_vector_pose(vec=[2.0, 0.0, 0.0])
+        # The matrix we expect inside local_transform after construction
+        expected_matrix = np.array([
+          [2.0, 0.0, 0.0,  0.0],
+          [0.0, 2.0, 0.0,  0.0],
+          [0.0, 0.0, 2.0,  0.0],
+          [0.0, 0.0, 0.0,  1.0],
+        ])
+        #self.vis(actors=self.node0.assembly, show_origin=1, show_grid=1)
+        actual_matrix = self.vtk_matrix_to_numpy_array(self.node0.local_transform.GetMatrix())
+        assert_allclose(expected_matrix, actual_matrix, atol=1e-15)
+
+    def test_set_vector_pose_opacity(self):
+        """
+        Test a set_vector_pose() call with a 0.5 opacity
+        """
+        self.node0.set_vector_pose(vec=[1.0,0.0,0.0], opacity=0.5)
+        actual_opacity = self.node0.actor.GetProperty().GetOpacity()
+
+        self.assertAlmostEqual(0.5, actual_opacity)
+        #self.vis(actors=self.node0.assembly, show_origin=1, show_grid=1)

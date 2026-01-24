@@ -7,3 +7,14 @@ This example usage of VIRGO is inspired by `SIM_satellite` from [the Trick repos
 * `satellite.py`: Script that launches VIRGO using `scene.yml` and `log_satellite.csv`
 
 ## TBD more info goes here
+
+## Advanced
+
+* `.log_satellite_DR_changes.csv` is hidden because it's an example test case for [Trick's `DR_Changes` data record option](https://nasa.github.io/trick/documentation/simulation_capabilities/Data-Record.html#recording-frequency-always-or-only-when-data-changes) which logs parameters only when a set of watched variables change. This file represents what the data in this example would look like if the following configuration was given to `SIM_satellite`:
+
+```python
+drg[DR_GROUP_ID].set_freq(trick.DR_Changes)
+drg[DR_GROUP_ID].add_change_variable("dyn.satellite.thruster_T1.on")
+drg[DR_GROUP_ID].add_change_variable("dyn.satellite.thruster_T3.on")
+```
+It would be nice to incorporate a `DR_Changes` use case under `examples/` somewhere but since it took a couple hours to configure this I'm leaving it here for now so we can more easily test it with `cp .log_satellite_DR_changes.csv log_satellite.csv && ./satellite.py` - Dan Jordan 1/2026

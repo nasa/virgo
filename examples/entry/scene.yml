@@ -16,22 +16,22 @@ playback_speed: 1.0
 starfield: 1
 data_source:
   trickpy:  # Logged data to read into virgo during init
-    time: 
+    time:
       group: trajectory            # Data recording group
       var: time   # Name given to time (first) column
     # Everything else is a data alias for logged data variables
-    sat_pos: 
+    sat_pos:
       group: trajectory            # Data recording group
       var: position[0-2] # Data recording variable
-    sat_rot: 
+    sat_rot:
       group: trajectory                # Data recording group
       var: R[0-2][0-2]  # Data recording variable
-    sat_alt: 
+    sat_alt:
       group: trajectory                # Data recording group
       var: altitude  # Data recording variable
 actors:
-  earth: 
-    mesh: VIRGO_PREFAB:earth-3000
+  earth:
+    mesh: VIRGO_PREFAB:wgs84-earth
     scale: 1.0             # Size multiplier
     pos:   [0.0, 0.0, 0.0] # initial position offset in scene
     ypr:   [180.0, 0.0, 0.0] # pitch-yaw-roll rotation offset, applied after pos:
@@ -70,7 +70,7 @@ picker:
   tolerance: 2e-10
 camera:
   follow: satellite
-  near_clipping_plane_tolerance: 5e-7
+  #near_clipping_plane_tolerance: 5e-7
 sun:
   direction: [1.0, 0.0, 0.0]  # World vector pointing towards sun
 lighting:

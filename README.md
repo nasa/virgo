@@ -111,7 +111,7 @@ Details on the playback rate and showing data at a particular world time go here
 
 ## Trails
 
-Trails are lines drawn between world coordinate points occupied by actors as they are encountered by changing the world time in the interactive scene. They show you where an actor has been in the past (or future if playing backward) and are very useful for showing spacecraft orbits to end users.  Trails can be enabled/disabled with the `t` key and are completely reset when reaching the start/end boundary of simulation data associated with the scene.
+Trails are lines drawn between world coordinate points occupied by actors as they are encountered by changing the world time in the interactive scene. They show you where an actor has been in the past (or future if stepping backward) and are very useful for showing spacecraft orbits to end users.  Trails can be enabled/disabled with the `t` key and are completely reset when reaching the start/end boundary of simulation data associated with the scene. Trails are also reset if the world time is commanded to another location via `time <new_time>` in the console.
 
 It's important to note that because VIRGO doesn't necessarily render every time step associated with simulation data, the visible trail may not be displaying all spatial points between two positions. For example if simulation data is provided every 1.0 seconds, but the playback speed is set to 1000X while trails are enabled, many simulation data points will be skipped as the scene renders data points only at the simulation data encountered rendered frame to rendered frame.
 
@@ -125,11 +125,22 @@ While using the interactive window the actor which is followed can be re-configu
 
 While using the interactive window the lighting mode can be seen in the top-right part of the HUD. Lighting modes can be changed by pressing the `l` key - this will cycle between the supported lighting modes.
 
+## Console
+
+Press \` (backtick) to toggle the console and type `help` to see what commands are available. The console is a terminal-like method to manipulate a VIRGO scene in more complex ways. For example if you want to clear the trails, run `reset_trails`. If you want to jump to a particular time, type `time <value>` to go there. This feature is experimental and commands are likely to change over time, so check `help` for up to date information on using the console.
+
 ## Units
 
 VIRGO (and the python-VTK code it's based upon) is unitless in nature which allows the user to work in any consistent units they find most useful.  For example, if you create a cube actor of size 10.0 positioned at (0,0,0) world coordinates, the cube has a width, height, and depth of 10.0 units.  It's on the user of VIRGO to decide what units are applicable and ensure all data entered into VIRGO is consistently represented in those units.
 
+## Rendering layers
+
+VIRGO manages multiple rendering layers behind the scenes as a way to combat [depth buffer](https://en.wikipedia.org/wiki/Z-buffering) [z-fighting](https://en.wikipedia.org/wiki/Z-fighting) and camera clipping constraints in scenes with very large and very small objects. User facing rendering layers are named 'foreground', 'midground', and 'background' and contain objects of appropriate distance away. The movement of these objects between layers is automatic - close objects are in the 'foreground' and as the camera moves further away they enter the 'midground' and 'background' accordingly. 
+
+Trails follow suit but are a bit more tricky to implement as they are actors that can span large distances (the continuous line is a single actor in the VTK framework). Because of this trails are broken into logical segments/actors that can be moved individually between layers as the camera's distance to them changes over time. This provides a much better visual experience but you may find some cases where trails appear on top or behind objects when they aren't. If this happens try manipulating the camera to overcome it. You can see trail segment information by pressing 'd' to toggle debug info in the HUD.
+
 ## The Heads Up Display (HUD)
+
 Details TBD
 
 ## Headless Mode (render directly to video)
@@ -142,8 +153,10 @@ Standalone examples can be found under the `examples/` directory.  If you are ne
 
 * `hello_cube/` - A very simple static scene showing non-moving cubes used to demonstrate the basics of VIRGO scene navigation.
 * `pendulums/` - A two-pendulum example demonstrating how VIRGO can consume data logged at multiple rates for each actor in a scene.
+* `cannon/` - A simple cannonball simulation visualization inspired by the example sims in the [Trick tutorial](https://nasa.github.io/trick/tutorial/Tutorial).
 * `satellite/` - A simple cube satellite in an equatorial orbit. This example shows how RCS jets firing can be visualized in a scene.
 * `launch/` - A simplified launch from Kennedy Space Center (KSC) pad. This example shows the high resolution WGS-84 earth and KSC image/terrain patch mechanisms.
+* `halo/` - A simple cube satellite in a halo orbit around the moon. This example provides an example of an orbital motion happening over approximately a week of simulation time.
 * `entry/` - A cube satellite entering earth atmosphere and landing in the ocean. This scene provides an example of how the VIRGO framework can be extended with custom functionality.
 * `screensaver/` - A simple screensaver example which depicts the earth and moon as well as current time and weather. This provides another example of how VIRGO can be extended with custom functionality.
 
@@ -228,6 +241,9 @@ actors:     # The dictionary which holds all actors in the scene. The
     pickable: 1  # Optional integer 1 or 0 (true or false) for defining if
                  #  this actor can be picked with right-mouse-click. Defaults
                  #  to 1/true
+    backface_culling: 0  # Optional integer 1 or 0 (true or false) for turning
+                         #   the render of actors backfaces on or off. Set to
+                         #   1 to improve performance, Defaults to 0.
     axes:   # The dictionary which holds information about this actor's axes
       when: # Optional string setting for when interal axes should be
             #   displayed with accepted values as follows:
@@ -251,13 +267,6 @@ actors:     # The dictionary which holds all actors in the scene. The
       thickness: # Optional integer thickness of line. Default: 2.
       opacity:   # Optional float represseting opacity of trail line.
                  #   Defaults to 1.0
-      layer:  # Optional rendering layer for this trail. Must be 'foreground',
-              #   'midground', or 'background'. This can be used to combat
-              #   Z-fighting in scenes with large objects where you want the
-              #   trail to pass behind objects in non-foreground layers, but
-              #   due to large camera clipping ranges in midground and
-              #   background, foreground is typically recommended and is the
-              #   default value. THIS FEATURE IS EXPERIMENTAL USE WITH CAUTION
     parent:      # Optional name of other actor, frame, or vector that this
                  #   actor's movement is defined relative to. If no parent: is
                  #   specified, movement is defined relative to world coordinates
@@ -444,7 +453,7 @@ Custom sections of the dictionary can be defined by users for any purpose they w
 
 ## Extending Virgo
 
-Details TBD
+Details TBD. See `examples/entry/` and `examples/screensaver/` for two extension examples
 
 ## Contributing
 

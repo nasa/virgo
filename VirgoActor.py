@@ -69,6 +69,7 @@ class VirgoActor(vtkActor):
         fontsize : int
             Default fontsize for text associated with this actor
         """
+        self.backface_culling_enabled = False
         # Call the parent class constructor to ensure proper initialization
         super().__init__()
 
@@ -87,6 +88,9 @@ class VirgoActor(vtkActor):
         self.initialized = False  # True only if this actor has all needed data to be used
         self.axes_default_scale = 0.5  # Default scaling of axes to be applied
 
+
+    def set_backface_culling(self, value=True):
+        self.backface_culling_enabled = value
 
     def set_static(self, value=True):
         self.static = value
@@ -116,6 +120,8 @@ class VirgoActor(vtkActor):
           self.RotateZ(self.offset_ypr[0])
           self.RotateY(self.offset_ypr[1])
           self.RotateX(self.offset_ypr[2])
+        if self.backface_culling_enabled:
+            self.GetProperty().BackfaceCullingOn()
         self.verify()
 
     def verify(self):
@@ -164,33 +170,8 @@ class VirgoActor(vtkActor):
             self.source.SetPhiResolution(100)  # Number of divisions in phi (latitude)
             # Create a mapper to map the sphere's geometry to graphics primitives
             mapper.SetInputConnection(self.source.GetOutputPort())
-        # High fidelity earth (for simulations very close to earth surface)
-        elif 'VIRGO_PREFAB:earth-3000' in str(mesh):
-            equatorial = 6378137.0
-            polar = 6356752.0
-            # Create a sphere source
-            self.source = vtkTexturedSphereSource()
-            self.source.SetRadius(equatorial)     # Equatorial radius
-            self.source.SetThetaResolution(3000)  # Number of divisions in theta (longitude)
-            self.source.SetPhiResolution(3000)  # Number of divisions in phi (latitude)
-            # Read Earth texture image
-            #reader = vtkJPEGReader()
-            reader = vtkPNGReader()
-            reader.SetFileName(os.path.join(thisFileDir, 'images/earth/earth_5400x2700.png'))
-            texture = vtkTexture()
-            texture.SetInputConnection(reader.GetOutputPort())
-            texture.InterpolateOn()
-            # Create a mapper to map the sphere's geometry to graphics primitives
-            mapper.SetInputConnection(self.source.GetOutputPort())
-            # Scale the sphere to make it an oblate spheroid
-            # Earth radii: equatorial ~6378 km, polar ~6357 km
-            scale_z = polar / equatorial
-            self.SetScale(1.0, 1.0, scale_z)  # squash along Z
-            # Standard equirectangular images need 180 rotation to
-            # have earth align with ECEF frame
-            self.RotateZ(180)
         # Medium fidelity earth (for simulations not too close to the surface)
-        elif 'VIRGO_PREFAB:earth' in str(mesh) or 'VIRGO_PREFAB:earth-300' in str(mesh):
+        elif 'VIRGO_PREFAB:earth' in str(mesh):
             equatorial = 6378137.0
             polar = 6356752.0
             # Create a sphere source
@@ -224,7 +205,7 @@ class VirgoActor(vtkActor):
             # Load and apply Earth texture
             # -----------------------------
             reader = vtkPNGReader()
-            reader.SetFileName(os.path.join(thisFileDir, 'images/earth/earth_5400x2700.png'))
+            reader.SetFileName(os.path.join(thisFileDir, 'images/earth/earth_4050x2025.png'))
             reader.Update()
 
             texture = vtkTexture()
@@ -279,7 +260,10 @@ class VirgoActor(vtkActor):
             polar = 1736000.0
             scale_z = polar / equatorial   # ~0.99879
             self.SetScale(1.0, 1.0, scale_z)
-        elif 'VIRGO_PREFAB:moon' in str(mesh) or 'VIRGO_PREFAB:moon4k' in str(mesh) :
+            # Standard equirectangular images need 180 rotation to
+            # have moon align with ECEF frame
+            self.RotateZ(180)
+        elif 'VIRGO_PREFAB:moon4k' in str(mesh) :
             # Create a sphere source
             self.source = vtkTexturedSphereSource()
             self.source.SetRadius(1738100.0)     # Set radius of moon
@@ -298,6 +282,31 @@ class VirgoActor(vtkActor):
             polar = 1736000.0
             scale_z = polar / equatorial   # ~0.99879
             self.SetScale(1.0, 1.0, scale_z)
+            # Standard equirectangular images need 180 rotation to
+            # have moon align with ECEF frame
+            self.RotateZ(180)
+        elif 'VIRGO_PREFAB:moon' in str(mesh) or 'VIRGO_PREFAB:moon2k' in str(mesh) :
+            # Create a sphere source
+            self.source = vtkTexturedSphereSource()
+            self.source.SetRadius(1738100.0)     # Set radius of moon
+            self.source.SetThetaResolution(300)  # Number of divisions in theta (longitude)
+            self.source.SetPhiResolution(300)  # Number of divisions in phi (latitude)
+            # Read Moon texture image
+            reader = vtkJPEGReader()
+            reader.SetFileName(os.path.join(thisFileDir, 'images/moon/lroc_color_poles_2k.jpg'))
+            texture = vtkTexture()
+            texture.SetInputConnection(reader.GetOutputPort())
+            texture.InterpolateOn()
+            # Create a mapper to map the sphere's geometry to graphics primitives
+            mapper.SetInputConnection(self.source.GetOutputPort())
+            # Scale the sphere to make it an oblate spheroid
+            equatorial = 1738100.0
+            polar = 1736000.0
+            scale_z = polar / equatorial   # ~0.99879
+            self.SetScale(1.0, 1.0, scale_z)
+            # Standard equirectangular images need 180 rotation to
+            # have moon align with ECEF frame
+            self.RotateZ(180)
         elif 'VIRGO_PREFAB:cube' in str(mesh):
             self.source = vtkCubeSource()
             self.source.SetXLength(1.0)
@@ -366,6 +375,7 @@ class VirgoActor(vtkActor):
         self._axes = axes
     def get_num_vertices(self):
         return self.num_vertices
+
 
     def create_wgs84_ellipsoid( self, n_lat=360, n_lon=720,
         a=6378137.0, b=6356752.314245):
@@ -460,10 +470,11 @@ class VirgoActor(vtkActor):
                 p3 = idx(i, j + 1)
 
                 quad = vtkQuad()
+                # Counter-Clockwise winding so normals face out into space
                 quad.GetPointIds().SetId(0, p0)
-                quad.GetPointIds().SetId(1, p1)
+                quad.GetPointIds().SetId(1, p3)
                 quad.GetPointIds().SetId(2, p2)
-                quad.GetPointIds().SetId(3, p3)
+                quad.GetPointIds().SetId(3, p1)
                 polys.InsertNextCell(quad)
 
         # -----------------------------

@@ -1,0 +1,64 @@
+# Configuration file for VIRGO to consume related to this simulation configuration
+name: VIRGO Halo Orbit example
+description: |
+     This scene visualizes a cube satellite in an halo orbit around the moon. Use
+     's' to change playback speed and watch one full orbital pass in the halo
+     orbit. Try picking the earth and moon and pressing 'c' to focus the camera
+     on it. Use 'camera follow satellite' in the console to switch the camera
+     back to following the satellite. Use 'd' to turn on debug mode which will
+     color each trail segment differently as well as show addition rendering
+     information in the lower left corner of the HUD.
+start_mode: PAUSED
+end_mode: PAUSED
+background_color: [0.0, 0.0, 0.05]
+highlight_color: [1.0, 1.0, 0.0]
+playback_speeds: [50.0, 100.0, 500.0, 1000.0, 5000.0]
+playback_speed: 100.0
+resolution: 1280x720
+starfield: 1
+data_source:
+  trickpy:  # Logged data to read into virgo during init
+    time:
+      group: halo            # Data recording group
+      var: time              # Name given to time (first) column
+    # Everything else is a data alias for logged data variables
+    sat_pos:
+      group: halo            # Data recording group
+      var: pos[0-2] # Data recording variable
+frames:
+  earth_location:
+    pos:  [356334000.0, 0.0, 0.0]
+actors:
+  moon:
+    mesh: VIRGO_PREFAB:moon
+  earth:
+    mesh: VIRGO_PREFAB:earth
+    pos:   [0.0, 0.0, 0.0] # initial position offset in scene
+    ypr:   [0.0, 0.0, 0.0] # yaw-pitch-roll rotation offset, applied after pos:
+    parent: earth_location
+  satellite:
+    mesh: VIRGO_PREFAB:cube         # Size multiplier
+    scale: 3.0
+    pos: [0.0, 0.0, 0.0]
+    ypr: [0.0, 0.0, 0.0]
+    color: [0.6, 0.6, 0.6]
+    pickable: 1
+    trail:
+      enabled: 1
+      color: [0.133, 0.408, 0.173]   # Color of trail (VIRGO green)
+      thickness: 5
+      opacity: 1.0
+    driven_by:  # Actor position/rotation driven by these data aliases
+      time: time
+      pos: sat_pos
+camera:
+  follow: satellite
+  position: [-100, 10, 30]
+sun:
+  direction: [1.0, 0.0, 0.0]  # World vector pointing towards sun
+
+lighting:
+  #start_mode: realistic
+  start_mode: ultrabright
+  dark_ambient: 0.2
+  bright_ambient: 0.7

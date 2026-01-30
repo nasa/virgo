@@ -111,12 +111,6 @@ class VirgoLabel():
         """
         self.label_follower.GetProperty().SetColor(color)
 
-    def set_faces_camera(self, fc):
-        """
-        Set the flag for if this label always faces the camera
-        Accepted values are governed by rules in VirgoDictVerifier
-        """
-        self.faces_camera = fc
 
     def set_when(self, wh):
         """
@@ -137,9 +131,16 @@ class VirgoLabel():
         """
         return(self.when)
 
+    def set_faces_camera(self, fc):
+        """
+        Set the flag for if this label always faces the camera
+        Accepted values are governed by rules in VirgoDictVerifier
+        """
+        self.faces_camera = fc
+
     def get_faces_camera(self):
         return(self.faces_camera)
-
+    
     def set_data_source(self, data_source):
         """Set the data source of the label
 

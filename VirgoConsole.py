@@ -72,12 +72,16 @@ class VirgoConsole:
         
         # Map that geometry to self.console_bg
         self.console_bg = vtkActor2D()
+        # Put on top of other HUD stuff in scene
+        # TODO: we probably should use enums
+        self.console_bg.SetLayerNumber(1)
         self.console_bg.SetMapper(mapper2d)
         self.console_bg.GetProperty().SetColor(0.0, 0.0, 0.0) 
         self.console_bg.GetProperty().SetOpacity(0.8)
         self.console_bg.GetPositionCoordinate().SetCoordinateSystemToNormalizedViewport()
         
         self.text_actor = vtkTextActor()
+        self.text_actor.SetLayerNumber(2) # Put on top of other HUD stuff in scene
         self.text_actor.GetTextProperty().SetFontSize(self.font_size)
         self.text_actor.GetTextProperty().SetColor(0.0, 1.0, 0.0) 
         self.text_actor.GetTextProperty().SetFontFamilyToCourier()
@@ -120,6 +124,9 @@ class VirgoConsole:
     def toggle(self):
         """
         Switch the console to visible or not visible
+
+        Here we remove the actors from the renderer so that the
+        renderer never draws in the Virgo update loop
         """
         self.is_visible = not self.is_visible
         self.console_bg.SetVisibility(self.is_visible)

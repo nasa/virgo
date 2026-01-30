@@ -120,7 +120,7 @@ actors:
 vectors:
   rope1:
     color: [0.5, 0.5, 0.5] # Color in RGB values
-    scale: 1.0             # Total length of vector
+    mode: absolute         # Display the full vector in 3D space
     tip_length: 0.5        # Percentage of total vector length occupied by tip
     tip_radius: 0.01       # Radius of cone base relative to total vector length
     # Radius of cylinder forming vector shaft relative to total vector length
@@ -131,7 +131,7 @@ vectors:
       pos: ball_pos  # Tip of vector will point in this direction
   rope2:
     color: [0.5, 0.5, 0.5] # Color in RGB values
-    scale: 0.5             # Total length of vector
+    mode: absolute         # Display the full vector in 3D space
     tip_length: 0.5        # Percentage of total vector length occupied by tip
     tip_radius: 0.01       # Radius of cone base relative to total vector length
     # Radius of cylinder forming vector shaft relative to total vector length

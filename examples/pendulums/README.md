@@ -15,3 +15,7 @@ The pendulum position is the only part simulated and rendered, not it's orientat
 ## Driving the sun with a `vector:`
 
 TBD example of uncommenting `sun: driven_by: rope1` goes here. This shows how the position of hte sun light can be driven by a vector in the scene.
+
+## A note on using `mode: absolute` to define the rope actors
+
+TBD info on the vector types goes here

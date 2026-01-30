@@ -57,7 +57,9 @@ class VirgoEntryControlCenter(VirgoControlCenter):
           self.altitude_texts[l].set_yaw_pitch_roll([-90, 0, 0])
           self.altitude_texts[l].set_scale(1.0e4) # Default size of text
           self.altitude_texts[l].enable()
-          self.renderers['foreground'].AddActor(self.altitude_texts[l].get_follower())
+          # Midground is most suited for these labels as they stretch across large
+          # sections of the earth circumference
+          self.renderers['midground'].AddActor(self.altitude_texts[l].get_follower())
 
     def update(self):
         """

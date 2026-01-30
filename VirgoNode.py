@@ -42,6 +42,10 @@ class VirgoSceneNode():
     This class also provides an intermediate layer between the actors in the scene
     and the rendering provided by higher level Virgo classes
     """
+    # Order of magnitude unit length of a self.assembly is considered a
+    # celestial body
+    celestial_body_oom = 1e6
+
     def __init__(self, name=None, actor=None, axes=True):
         self.verbosity=1  # TODO make adjustable
         self.fs = 14      # font size
@@ -58,7 +62,7 @@ class VirgoSceneNode():
         self._currently_picked = False
         self.transpose_dcm = True
         # Rendering layer this node's self.assembly will be added to
-        self.layer = 'foreground'
+        self.layer = None
 
         if axes:
             self.axes = self.create_axes()
@@ -106,6 +110,15 @@ class VirgoSceneNode():
         # Number of vertices self.actor must stay under for a silhoutte to be created
         self.silhouette_vert_limit = int(1.0e5)
         self.create_silhouette()
+
+        # Internal members for bounding box information
+        self.bb = []   # Full bounds from self.assembly.GetBounds
+        self.bb_longest_length = None
+        self.bb_shortest_length = None
+        self.bb_x_length = None
+        self.bb_y_length = None
+        self.bb_z_length = None
+        self.is_celestial_body = False
 
         # If not None, self.parent is another VirgoSceneNode instance that this node
         # is parented to.
@@ -326,9 +339,40 @@ class VirgoSceneNode():
         """
         Initialize this node
         """
+        self.layer = 'foreground'
         self.update(world_time)
+        if self.actor:
+            self.compute_actor_bounds()
         if self.labels:
             self.initialize_labels(world_time)
+        if self.axes_when == 'always':
+            print("WARNING: axes: when: always is not recommended until a"
+                  " resolution to the vtkAxesActor bug is implmented. Suggest"
+                  " using 'picked' or 'toggled' instead. See more at link:\n"
+                  "  https://discourse.vtk.org/t/vtkaxesactor-bounding-box-appears-to-be-affected-by-its-world-position/16290"
+                  )
+
+    def compute_actor_bounds(self):
+        """
+        Compute the physical bounds of interest for this node's assembly
+
+        If the longest bounding box length is greater than a celstial body,
+        set self.is_celestial_body to True
+        """
+        # The bounding box of the assembly
+        self.bb = self.actor.GetBounds()
+        self.bb_x_length = abs(self.bb[0] - self.bb[1])
+        self.bb_y_length = abs(self.bb[2] - self.bb[3])
+        self.bb_z_length = abs(self.bb[4] - self.bb[5])
+        self.bb_longest_length = max(self.bb_x_length,
+                                     self.bb_y_length,
+                                     self.bb_z_length)
+        self.bb_shortest_length = min(self.bb_x_length,
+                                      self.bb_y_length,
+                                      self.bb_z_length)
+
+        if self.bb_longest_length > self.celestial_body_oom:
+            self.is_celestial_body = True
 
     def update(self, world_time):
         """
@@ -384,7 +428,7 @@ class VirgoSceneNode():
                 print(f"{prefix}{[matrix.GetElement(i, j) for j in range(4)]}")
             # If this part is another assembly, recurse into it
             if isinstance(prop, vtkAssembly):
-#                print(f"{prefix}Recursing into {prop}...")
+                #print(f"{prefix}Recursing into {prop}...")
                 self.dump_assembly(prop, indent + 1)
             elif isinstance(prop, vtkActor):
                 # Optional: print some extra info about actors
@@ -397,6 +441,7 @@ class VirgoSceneNode():
     def report(self):
         print(f"==== BEGIN  VirgoSceneNode Report for Node {self.name} ===================")
         matrix = self.assembly.GetMatrix()
+        print(f"self.layer: {self.layer}")
         print("Top level assembly transform matrix:")
         for i in range(4):
             print([matrix.GetElement(i, j) for j in range(4)])
@@ -612,11 +657,39 @@ class VirgoSceneNode():
             return False
         return(self.axes.GetVisibility())
 
+    def get_root_node(self):
+        """
+        Get this node's root VirgoSceneNode (highest parent level)
+        Returns self is this node is a root node
+        """
+        if self.parent == None:
+            return(self)
+        else:
+            self.get_root_node(self.parent)
+
     def set_layer(self, layer):
-        self.layer = layer
+        """
+        TODO: do we need this?
+        """
+        if self.parent:
+            msg = (f"ERROR: Node {self.name} cannot set_layer since it"
+                   f"isn't a root node. Parent: {self.parent.name}")
+            raise RuntimeError (msg)
+        else:
+            #print(f"   {self.name} is now in {layer}")
+            if self.verbosity > 3:
+                print(f" {self.name} is now in {layer}")
+            self.layer = layer
 
     def get_layer(self):
-        return(self.layer)
+        """
+        Get this node's layer. Only root nodes (no parent)
+        can have a defined layer, so find it if needed.
+        """
+        if self.parent:
+            return(self.parent.get_layer())
+        else:
+            return(self.layer)
 
     def hide_labels(self):
         for label in self.labels:
@@ -654,6 +727,8 @@ class VirgoSceneNode():
         self.axes.Modified()
         if self.actor and self.axes_affect_opacity == True:
             self.actor.GetProperty().SetOpacity(self._last_opacity)
+        #print(f"DEBUG: in hide_axes and axes bb is {self.axes.GetBounds()}")
+        #print(f"DEBUG: in hide_axes and assembly bb is {self.assembly.GetBounds()}")
 
     def show_axes(self):
         if not self.axes or self.axes_when == 'never':
@@ -664,7 +739,8 @@ class VirgoSceneNode():
         #print(f"DEBUG: turning visibility of {self.name} axes on.")
         self.axes.SetVisibility(True)
         self.axes.Modified()
-        #print(f"DEBUG: in show_axes and self.name is {self.name}")
+        #print(f"DEBUG: in show_axes and axes bb is {self.axes.GetBounds()}")
+        #print(f"DEBUG: in show_axes and assembly bb is {self.assembly.GetBounds()}")
         if self.actor and self.axes_affect_opacity == True:
             self._last_opacity = self.actor.GetProperty().GetOpacity()
             if self._last_opacity > self._actor_opacity_threshold:
@@ -675,10 +751,20 @@ class VirgoSceneNode():
                       f"turn this off")
                 self.actor.GetProperty().SetOpacity(new_opacity)
 
-    def create_trail(self, color=[1.0, 1.0, 1.0], thickness=2, opacity=1.0, layer='foreground'):
-        self.trail = VirgoTrail(color=color, thickness=thickness, opacity=opacity, layer=layer)
+    def create_trail(self, color=[1.0, 1.0, 1.0], thickness=2, opacity=1.0):
+        self.trail = VirgoTrail(node=self, color=color, thickness=thickness,
+                                opacity=opacity)
         return self.trail
         
+    def toggle_trail_segments_debug_color(self):
+        if not self.trail:
+            return
+
+        if self.trail.segment_debug_colors:
+            self.trail.uncolor_the_segments()
+        else:
+            self.trail.color_the_segments()
+
 
     def get_current_position(self):
         pos = None
@@ -692,29 +778,6 @@ class VirgoSceneNode():
         """
         if self.trail:
             self.trail.reset_trail()
-
-
-
-#    def hide_or_unhide_axes_labels(self, camera):
-#        """
-#        Turn the axes labels off if actor is far enough from the camera
-#
-#        TODO: this looks funky if you're close to the actor but it's behind the
-#            camera, we also need a check that it's visible, or maybe we don't need
-#            this feature at all
-#        """
-#        if not self.axes:
-#            return
-#        camera_pos = camera.GetPosition()
-#        matrix = self.axes.GetMatrix()
-#        axes_pos =[ matrix.GetElement(0, 3),  matrix.GetElement(1, 3), matrix.GetElement(2, 3)]
-#        distance = math.sqrt(
-#            (camera_pos[0] - axes_pos[0])**2 +
-#            (camera_pos[1] - axes_pos[1])**2 +
-#            (camera_pos[2] - axes_pos[2])**2
-#        )
-#        self.axes.SetAxisLabels(distance < self.axes_label_render_threshold)
-
 
 class VirgoSceneNodeVector(VirgoSceneNode):
     """

@@ -43,10 +43,6 @@ class AxesAndLabelsWhen(str, Enum):
 class AxesStyle(str, Enum):
     line = "line"
     cylinder = "cylinder"
-class RenderingLayers(str, Enum):
-    foreground = "foreground"
-    midground = "midground"
-    background = "background"
 class VectorMode(str, Enum):
     unit = 'unit'
     absolute = 'absolute'
@@ -79,10 +75,6 @@ class TrailSchema(BaseModel):
     color: RGBColor = [1.0, 1.0, 1.0]
     thickness: int = 2
     opacity: float = 1.0
-    layer: Optional[RenderingLayers] = Field(
-        default=RenderingLayers.foreground,
-        description="Rendering layer for this trail"
-    )
 
     @field_validator("color")
     @classmethod
@@ -101,6 +93,8 @@ class CameraSchema(BaseModel):
     view_up: Optional[Vec3] = None
     follow: Optional[str] = None
     near_clipping_plane_tolerance: Optional[float] = None
+    foreground_far_boundary: Optional[float] = None
+    midground_far_boundary: Optional[float] = None
 
 class LightingSchema(BaseModel):
     start_mode: Optional[LightingMode] = Field(
@@ -198,12 +192,8 @@ class ActorBaseSchema(BaseModel):
     color: Optional[RGBColor] = None
     pickable: bool = True
     parent: Optional[str] = None
+    backface_culling: Optional[bool] = False
     provide_aliases: List[str] = Field(default_factory=list)
-
-    layer: Optional[RenderingLayers] = Field(
-        default=RenderingLayers.foreground,
-        description="Rendering layer for this actor"
-    )
 
     # --- SubSchemas ---
     axes: Optional[AxesSchema] = None
@@ -227,12 +217,6 @@ class ActorBaseSchema(BaseModel):
             raise ValueError("an actor's color values must be between 0.0 and 1.0")
         return v
 
-    @model_validator(mode='before')
-    def ensure_layer_only_given_for_root_nodes(self):
-        if 'parent' in self and 'layer' in self:
-            raise ValueError('layer can only be specified for actors with no'
-                             ' parent (root nodes)')
-        return self
 
 
 class DataAliasSchema(BaseModel):

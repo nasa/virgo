@@ -1,7 +1,6 @@
 import os, sys, shutil, inspect
 import unittest
 import io
-from unittest.mock import patch
 from numpy.testing import assert_allclose
 import pdb
 

@@ -1,5 +1,6 @@
 import math, os, inspect
 from Virgo import VirgoSceneNodeVector
+from VirgoActor import VirgoActor
 
 class VirgoHud:
     """
@@ -28,11 +29,18 @@ class VirgoHud:
         self.picker_tolerance = None
         self.lighting_mode = None
         self.help = None
+        self.debug = False
         self.version = self.get_version()
 
     def set_color(self, color):
         for ta in self.text_actors:
             self.text_actors[ta].GetTextProperty().SetColor(color[0], color[1], color[2])
+
+    def set_debug(self, value):
+        self.debug = value
+
+    def get_debug(self):
+        return(self.debug)
 
     def get_version(self):
         version="UNKNOWN"
@@ -51,6 +59,11 @@ class VirgoHud:
         """
         actor = self.picked_actor
         if actor:
+            if not isinstance(actor, VirgoActor) and not issubclass(actor, VirgoActor):
+              msg = (f"ERROR: Expected picked actor: {actor} to be of type "
+                f"VirgoActor but got {type(actor)} instead. Cannot render "
+                f"picked actor in HUD")
+              raise RuntimeError (msg)
             text=""
             parent=""
             node_curr_time=""
@@ -133,7 +146,7 @@ class VirgoHud:
         lighting_text_height = bounds_lighting[3] - bounds_lighting[2] + 1  # Height in pixels
         max_width = max(camera_text_width, lighting_text_width)
         # Calculate position for bottom-right corner with padding
-        camera_x_pos = (window_width - max_width - hud_padding)/1.3  # 2/3ish the way over on right side
+        camera_x_pos = (window_width - max_width - hud_padding)/1.5  # 2/3ish the way over on right side
         camera_y_pos = window_height - camera_text_height - hud_padding  # Top edge (20 pixels from bottom)
         self.text_actors['camera'].SetPosition(camera_x_pos, camera_y_pos)
 
@@ -161,6 +174,7 @@ class VirgoHud:
                 f"\n <- -> : Step back/forward in time"
                 f"\n  -  + : Adjust HUD text size"
                 f"\n a: Toggle Axes Visibility"
+                f"\n d: Toggle debug info in HUD"
                 f"\n c: Toggle camera free/follow-picked"
                 f"\n l: Toggle Lighting Mode"
                 f"\n L: Toggle Node Label Visibility"
@@ -183,16 +197,40 @@ class VirgoHud:
         else:
             self.text_actors['help'].SetInput("")
 
+    def add_debug_text(self, text):
+        """Add renderer and camera info to version text box for debugging"""
+        for r in self.renderers:
+            clipping_range = self.renderers[r].GetActiveCamera().GetClippingRange()
+            num_props = self.renderers[r].GetViewProps().GetNumberOfItems()
+            tol = self.renderers[r].GetNearClippingPlaneTolerance()
+            text += f"\n{r}:{clipping_range},{tol:E},{num_props}"
+        for n in self.nodes:
+            if self.nodes[n].parent == None:
+                n = self.nodes[n].name
+                l = self.nodes[n].get_layer()
+                text += f"\n{n}:{l}"
+            if self.nodes[n].trail:
+                t = self.nodes[n].trail
+                aatl = t.get_trail_actors_and_their_layers()
+                for a, l in aatl:
+                  text += f"\ntrail:{n}:{l}"
+        return(text)
+
     def configure_version(self, window_width, window_height, hud_padding=20):
         """
         Configure HUD with version information
         """
+        version_text = f"VIRGO {self.version}"
+
+        if self.debug:
+            version_text = self.add_debug_text(version_text)
+
         bounds = [0] * 4 # Get the text bounding box in display coordinates  [xmin, xmax, ymin, ymax]
         self.text_actors['picked'].GetBoundingBox(self.renderers['foreground'], bounds)
         text_height = bounds[3] - bounds[2] + 1  # Height in pixels
         self.text_actors['version'].GetTextProperty().SetColor(0.7, 0.7, 0.7)
         self.text_actors['version'].SetPosition(hud_padding, text_height + hud_padding)
-        self.text_actors['version'].SetInput(f"VIRGO {self.version}")
+        self.text_actors['version'].SetInput(version_text)
 
     def configure(self, mode, camera_follows, playback_speed, picked_actor,
                   picker_tolerance, world_time, min_sim_time, max_sim_time,

@@ -83,8 +83,8 @@ data_source:
     T4_on: 
       group: satellite
       var: dyn.satellite.thruster_T4.on
-# A frame is an empty actor/node whose position/orientation must be static
-# with respect to it's parent (or world if no parent specified)
+# A frame is a node with no actor (no mesh). These are akin to engineering
+# reference frames and allow us to place other actors relative to it
 frames:
   RCS_T:  # Location of the T-set of RCS jets
     pos: [0.0, 0.0, 1.956]
@@ -102,19 +102,32 @@ frames:
     pos: [0.0, -1.956, 0.0]
     ypr: [0.0, 0.0, 0.0]
     parent: satellite
+  moon_location:
+    pos:  [356334000.0, 0.0, 0.0]
 actors:
   earth: 
     mesh: VIRGO_PREFAB:earth
     scale: 1.0             # Size multiplier
     pos:   [0.0, 0.0, 0.0] # initial position offset in scene
     ypr:   [0.0, 0.0, 0.0] # yaw-pitch-roll rotation offset, applied after pos:
-    pickable: 0
     labels:
       name:
         text: "Earth"
         faces_camera: 1
         pos: [0.0, 0.0, 6500000.0]
         scale: 300000
+    axes: 
+      when: never          # always, never, picked, or toggled
+  moon: 
+    mesh: VIRGO_PREFAB:moon
+    scale: 1.0             # Size multiplier
+    parent: moon_location
+    labels:
+      name:
+        text: "Moon"
+        faces_camera: 1
+        pos: [0.0, 0.0, 0.0]
+        scale: 3000000
     axes: 
       when: never          # always, never, picked, or toggled
   satellite:
@@ -293,11 +306,11 @@ picker:
   tolerance: 2e-10
 camera:
   follow: satellite
-  near_clipping_plane_tolerance: 5e-7
 sun:
   direction: [1.0, 0.0, 0.0]  # World vector pointing towards sun
 
 lighting:
-  start_mode: realistic
+  #start_mode: realistic
+  start_mode: ultrabright
   dark_ambient: 0.2
   bright_ambient: 0.7

@@ -86,7 +86,7 @@ class VirgoActorTestCase(VisualizableTestCase):
         """
         Test the VIRGO_PREFAB:moon option
         """
-        self.instance = VirgoActor(mesh="VIRGO_PREFAB:moon8k")
+        self.instance = VirgoActor(mesh="VIRGO_PREFAB:moon")
         #self.vis(actors=self.instance, show_origin=1, oal=[3e6, 3e6, 3e6])
         # TODO assertions go here!
 
@@ -95,14 +95,6 @@ class VirgoActorTestCase(VisualizableTestCase):
         Test the VIRGO_PREFAB:earth option
         """
         self.instance = VirgoActor(mesh="VIRGO_PREFAB:earth")
-        # TODO assertions go here!
-        #self.vis(actors=self.instance, show_origin=1, oal=[1e7, 1e7, 1e7])
-
-    def test_init_prefab_earth_3000(self):
-        """
-        Test the VIRGO_PREFAB:earth-3000 option
-        """
-        self.instance = VirgoActor(mesh="VIRGO_PREFAB:earth-3000")
         # TODO assertions go here!
         #self.vis(actors=self.instance, show_origin=1, oal=[1e7, 1e7, 1e7])
 

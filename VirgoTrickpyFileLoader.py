@@ -327,29 +327,20 @@ class VirgoTrickpyFileLoader(VirgoDataLoader):
 
         # Expand the variables to see how many array indices there are
         expanded_variables = self.expand_arrays(variable)
-        # Search for the [] var_indices in the var associated with the alias
-        # given, and split it into variable=(variable with no var_indices),
-        # var_indices=(var_indices) where var_indices is None if not given
-        variable, variable_indices = self.split_variable_indices(variable)
-        # We can assume the data type by looking at expansion of the variable notation
-        # [0-2] means a size 3
-        # [0-2][0-2] means a size 3x3 aka 9
         if len(expanded_variables) == 1:
-            datas = self.drg[grp][variable].tolist()
+            datas = self.drg[grp][expanded_variables[0]].tolist()
         elif len(expanded_variables) == 3:
             datas = list(zip(
-                self.drg[grp][variable+'[0]'].tolist(),
-                self.drg[grp][variable+'[1]'].tolist(),
-                self.drg[grp][variable+'[2]'].tolist()))
+                self.drg[grp][expanded_variables[0]].tolist(),
+                self.drg[grp][expanded_variables[1]].tolist(),
+                self.drg[grp][expanded_variables[2]].tolist()))
         elif len(expanded_variables) == 9:
-            tidx = 0
-            list_length = len(self.drg[grp][variable+'[0][0]'])
+            list_length = len(self.drg[grp][expanded_variables[0]])
             for i in range(0, list_length):
                 datas.append( np.array(
-                [  [ self.drg[grp][variable+'[0][0]'][i], self.drg[grp][variable+'[0][1]'][i], self.drg[grp][variable+'[0][2]'][i] ],
-                   [ self.drg[grp][variable+'[1][0]'][i], self.drg[grp][variable+'[1][1]'][i], self.drg[grp][variable+'[1][2]'][i] ],
-                   [ self.drg[grp][variable+'[2][0]'][i], self.drg[grp][variable+'[2][1]'][i], self.drg[grp][variable+'[2][2]'][i] ] ] )
+                [  [ self.drg[grp][expanded_variables[0]][i], self.drg[grp][expanded_variables[1]][i], self.drg[grp][expanded_variables[2]][i] ],
+                   [ self.drg[grp][expanded_variables[3]][i], self.drg[grp][expanded_variables[4]][i], self.drg[grp][expanded_variables[5]][i] ],
+                   [ self.drg[grp][expanded_variables[6]][i], self.drg[grp][expanded_variables[7]][i], self.drg[grp][expanded_variables[8]][i] ] ] )
                 ) 
-            pass
 
         return datas

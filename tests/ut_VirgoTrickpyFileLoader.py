@@ -41,14 +41,17 @@ class VirgoDataLoaderSimpleTestCase(unittest.TestCase):
         self.trickpy_dict['pos']  = {}
         self.trickpy_dict['rot']  = {}
         self.trickpy_dict['opacity']  = {}
+        self.trickpy_dict['vec1']  = {}
         self.trickpy_dict['time']['group']    = "one_body_static"
         self.trickpy_dict['pos']['group']     = "one_body_static"
         self.trickpy_dict['rot']['group']     = "one_body_static"
         self.trickpy_dict['opacity']['group'] = "one_body_static"
+        self.trickpy_dict['vec1']['group'] = "one_body_static"
         self.trickpy_dict['time']['var']      = "sys.exec.out.time"
         self.trickpy_dict['pos']['var']       = "my.foo[0].position[0-2]"
         self.trickpy_dict['rot']['var']       = "my.foo[0].R[0-2][0-2]"
         self.trickpy_dict['opacity']['var']   = "my.foo[0].bar[0]"
+        self.trickpy_dict['vec1']['var']   = "my.foo[0][0][0].hi[0][0-2]"
 
     def test_expand_arrays(self):
         """
@@ -108,11 +111,13 @@ class VirgoDataLoaderSimpleTestCase(unittest.TestCase):
         posys = self.instance.get_alias_data(alias='pos[1]')
         poszs = self.instance.get_alias_data(alias='pos[2]')
         opacities = self.instance.get_alias_data(alias='opacity')
+        vec1 = self.instance.get_alias_datas(alias='vec1')
         # TODO need more assertions here
         self.assertEqual(posxs[0], 0.0)
         self.assertEqual(posys[0], 0.0)
         self.assertEqual(poszs[0], 0.0)
         self.assertEqual(opacities[0], 0.5)
+        self.assertEqual(vec1[0], (1.0,0.0,0.0))
 
         Rxxs = self.instance.get_alias_data(alias='rot[0][0]')
         # TODO need more assertions here
@@ -212,6 +217,7 @@ class VirgoDataLoaderStaticFunctionsTestCase(unittest.TestCase):
             ['my.foo[0][0][0].hi[0]',         'my.foo[0][0][0].hi',        '[0]'],
             ['my.foo[0][0][0].hi[0][2]',      'my.foo[0][0][0].hi',     '[0][2]'],
             ['my.foo[0][0][0].hi[0-2][0-2]',  'my.foo[0][0][0].hi', '[0-2][0-2]'],
+            ['my.foo[0][0][0].hi[0][0-2]',  'my.foo[0][0][0].hi', '[0][0-2]'],
         ]
     def test_split_variable_indices(self):
         for row in self.test_strings:

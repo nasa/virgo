@@ -649,7 +649,7 @@ class VirgoControlCenter:
             last = path.GetLastNode()
             if last:
                 vp = last.GetViewProp()
-                if vp and vp.IsA("vtkActor"):
+                if vp and issubclass(type(vp), VirgoActor):
                     return vp
         return None
 

@@ -15,7 +15,31 @@ def suite():
     """Create test suite from test cases here and return"""
     suites = []
     suites.append(unittest.TestLoader().loadTestsFromTestCase(VirgoActorTestCase))
+    suites.append(unittest.TestLoader().loadTestsFromTestCase(VirgoActorStaticFunctionsTestCase))
     return (suites)
+
+class VirgoActorStaticFunctionsTestCase(unittest.TestCase):
+    """
+    Test the expand_env_vars function
+    """
+    def test_expand_env_vars(self):
+        os.environ['MYVAR1'] = '/home/billy'
+        os.environ['APP'] = 'myapp'
+        
+        output = VirgoActor.expand_env_vars("Hello $MYVAR1")
+        self.assertEqual(output, 'Hello /home/billy')
+
+        output = VirgoActor.expand_env_vars("Path: ${MYVAR1}/projects")
+        self.assertEqual(output, 'Path: /home/billy/projects')
+
+        output = VirgoActor.expand_env_vars("%APP% lives in ${MYVAR1}/%APP%")
+        self.assertEqual(output, 'myapp lives in /home/billy/myapp')
+        
+        output = VirgoActor.expand_env_vars("No var here")
+        self.assertEqual(output, 'No var here')
+
+        with self.assertRaises(RuntimeError):
+            output = VirgoActor.expand_env_vars("$UNDEFINED_VAR stays")
 
 class VirgoActorTestCase(VisualizableTestCase):
 

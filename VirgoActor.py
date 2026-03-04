@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 import numpy as np
-import os, sys, inspect, math
+import os, inspect, re
 thisFileDir = os.path.dirname(os.path.abspath(inspect.getsourcefile(lambda:0)))
 
 from vtkmodules.vtkRenderingCore import (
@@ -74,9 +74,9 @@ class VirgoActor(vtkActor):
         super().__init__()
 
         self.source = None  # If using a vtk*Source, it's stored here for reference
-        self.mesh  = mesh
+        self.mesh  = self.expand_env_vars(mesh)
         self.name = name            # Name of this actor
-        self._map_mesh(mesh)
+        self._map_mesh(self.mesh)
         self.num_vertices = None
         self.offset_pos  = offset_pos     # Initialization position offset to apply to to actor
         self.offset_ypr  = offset_ypr     # Initialization pitch/yaw/roll to apply to to actor
@@ -88,6 +88,36 @@ class VirgoActor(vtkActor):
         self.initialized = False  # True only if this actor has all needed data to be used
         self.axes_default_scale = 0.5  # Default scaling of axes to be applied
 
+    @staticmethod
+    def expand_env_vars(text: str) -> str:
+        """
+        Accepts a string that may contain environment variables and returns
+        the string with all environment variables expanded.
+    
+        Supports formats:
+          - $VAR_NAME
+          - ${VAR_NAME}
+          - %VAR_NAME%  (Windows-style)
+    
+        Raises RuntimeError if any variable is not set.
+        """
+        def _resolve(var_name: str, original: str) -> str:
+            if var_name not in os.environ:
+                msg = (f"ERROR: Environment var {var_name} not defined.")
+                raise RuntimeError (msg)
+            return os.environ[var_name]
+
+        result = re.sub(
+            r'\$\{([^}]+)\}|\$([A-Za-z_][A-Za-z0-9_]*)',
+            lambda m: _resolve(m.group(1) or m.group(2), m.group(0)),
+            text
+        )
+        result = re.sub(
+            r'%([^%]+)%',
+            lambda m: _resolve(m.group(1), m.group(0)),
+            result
+        )
+        return result
 
     def set_backface_culling(self, value=True):
         self.backface_culling_enabled = value

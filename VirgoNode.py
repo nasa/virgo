@@ -457,7 +457,10 @@ class VirgoSceneNode():
                  scale=None, opacity=None):
         """
         Manipulate self.local_transform to provide position, rotation, and
-        scale adjustments to this Node's self.assembly.
+        scale adjustments to this Node's self.assembly. Only one rotation method
+        (dcm or ypr) may be specified, but in both approaches the node is moved
+        by pos first, then the rotation is applied about the pos's origin at that
+        new location.
 
         Args:
           pos: [X,Y,Z] position vector describing where to move this node relative to
@@ -501,15 +504,34 @@ class VirgoSceneNode():
                 matrix.SetElement(1, 3, pos[1])
                 matrix.SetElement(2, 3, pos[2])
             self.local_transform.SetMatrix(matrix)
-        # If only pos is given, use the Translate() approach
+        # If dcm is not given, use the Translate() approach
         elif pos is not None:
             self.local_transform.Translate(*pos)
 
+        # The approach below is needed such that the rotation is applied
+        # after position is applied. A simple Rotate*() after Translate()
+        # results in a rotation about the pre-translation frame, which is
+        # not desired here -Jordan 4/2026
         if ypr is not None:
             rz, ry, rx = ypr
-            self.local_transform.RotateZ(rz)
-            self.local_transform.RotateY(ry)
-            self.local_transform.RotateX(rx)
+            # Build rotation-only transform
+            rot_transform = vtkTransform()
+            rot_transform.RotateZ(rz)
+            rot_transform.RotateY(ry)
+            rot_transform.RotateX(rx)
+            rot_matrix = rot_transform.GetMatrix()
+        
+            # Extract current translation, apply rotation around that point
+            matrix = vtkMatrix4x4()
+            matrix.DeepCopy(self.local_transform.GetMatrix())
+        
+            rot_only = vtkMatrix4x4()
+            for i in range(3):
+                for j in range(3):
+                    rot_only.SetElement(i, j, rot_matrix.GetElement(i, j))
+        
+            vtkMatrix4x4.Multiply4x4(matrix, rot_only, matrix)
+            self.local_transform.SetMatrix(matrix)
 
         if scale is not None:
             self.set_scale(scale)

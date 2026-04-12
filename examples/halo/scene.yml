@@ -1,13 +1,15 @@
 # Configuration file for VIRGO to consume related to this simulation configuration
 name: VIRGO Halo Orbit example
 description: |
-     This scene visualizes a cube satellite in an halo orbit around the moon. Use
-     's' to change playback speed and watch one full orbital pass in the halo
-     orbit. Try picking the earth and moon and pressing 'c' to focus the camera
-     on it. Use 'camera follow satellite' in the console to switch the camera
-     back to following the satellite. Use 'd' to turn on debug mode which will
-     color each trail segment differently as well as show addition rendering
-     information in the lower left corner of the HUD.
+     This scene visualizes a cube satellite in an halo orbit around the moon.
+     Both the earth and moon move realistically with world coordinates centered
+     at the moon inertial coordinate system. Use 's' to change playback speed
+     and watch one full orbital pass in the halo orbit. Try picking the earth
+     and/or moon and pressing 'c' to focus the camera on it. Use 'camera follow
+     satellite' in the console to switch the camera back to following the
+     satellite. Use 'd' to turn on debug mode which will color each trail
+     segment differently as well as show addition rendering information in the
+     lower left corner of the HUD.
 start_mode: PAUSED
 end_mode: PAUSED
 background_color: [0.0, 0.0, 0.05]
@@ -17,25 +19,44 @@ playback_speed: 100.0
 resolution: 1280x720
 starfield: 1
 data_source:
-  trickpy:  # Logged data to read into virgo during init
+  trickpy:
     time:
-      group: halo            # Data recording group
-      var: time              # Name given to time (first) column
-    # Everything else is a data alias for logged data variables
+      group: halo
+      var: time
+    # Satellite position in MCI (moon-centered inertial) coords
     sat_pos:
       group: halo            # Data recording group
-      var: pos[0-2] # Data recording variable
+      var: sat_pos[0-2] # Data recording variable
+    # Position vector of earth-centered inertial (ECI) frame
+    # expressed in MCI coordinates
+    earth_pos:
+      group: halo            # Data recording group
+      var: MCI_to_ECI[0-2]   # Data recording variable
+    # Rotation matrix from ECI to earth-fixed coordinates
+    earth_rot:
+      group: halo            # Data recording group
+      var: earth_ECI_to_pfix[0-2][0-2] # Data recording variable
+    # Rotation matrix from MCI to moon-fixed coordinates
+    moon_rot:
+      group: halo            # Data recording group
+      var: moon_MCI_to_pfix[0-2][0-2] # Data recording variable
 frames:
-  earth_location:
-    pos:  [356334000.0, 0.0, 0.0]
+  ECI:   # Earth Centered Inertial location
+    driven_by:
+      time: time
+      pos: earth_pos
+      rot: earth_rot
 actors:
   moon:
     mesh: VIRGO_PREFAB:moon
+    driven_by:
+      time: time
+      rot: moon_rot
   earth:
     mesh: VIRGO_PREFAB:earth
     pos:   [0.0, 0.0, 0.0] # initial position offset in scene
     ypr:   [0.0, 0.0, 0.0] # yaw-pitch-roll rotation offset, applied after pos:
-    parent: earth_location
+    parent: ECI
   satellite:
     mesh: VIRGO_PREFAB:cube         # Size multiplier
     scale: 3.0

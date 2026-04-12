@@ -146,35 +146,35 @@ class VirgoSceneNodeTestCase(VisualizableTestCase):
 
     def test_set_pose_ypr_90_90_90(self):
         """
-        Do a more complicated yaw-pitch-roll maneuver Rotate a teapot (90,90,90)
+        Do a more complicated yaw-pitch-roll maneuver Rotate a teapot (90,-90,0)
         in yaw-pitch-roll which is an Z-Y-X Tait Bryan Euler rotation. The
-        teapot should end up upside down with it's center of base at the origin,
-        lid pointing negative Y, handle pointing negative Z, and spout pointing
-        positive Z
+        teapot should end up with it's base at the world origin with base facing
+        (in world coordinate space) negative Y, handle facing positive Z, spout
+        facing negative Z and X completing the right-handed set
         """
-        # Make node2 a child of node1
         self.node1.set_pose(ypr=(90.0, 90.0, 90.0))
 
         # The matrix we expect inside local_transform after this ypr rotation
         expected_matrix = np.array([
-          [0.0, 0.0, 1.0,  0.0],
-          [0.0, -1.0, 0.0,  0.0],
-          [1.0, 0.0, 0.0,  0.0],
-          [0.0, 0.0, 0.0,  1.0],
+          [0.0,  0.0, 1.0,  0.0],
+          [0.0,  1.0, 0.0,  0.0],
+          [-1.0, 0.0, 0.0,  0.0],
+          [0.0,  0.0, 0.0,  1.0],
         ])
+        self.node1.show_axes()
+        #self.vis(actors=self.node1.assembly, show_origin=1, show_grid=1)
         for i in range(4):
           for j in range(4):
             self.assertAlmostEqual(expected_matrix[i, j], self.node1.local_transform.GetMatrix().GetElement(i, j))
 
-        #self.vis(actors=self.node1.assembly, show_origin=1, show_grid=1)
 
     def test_set_pose_ypr_90_neg90_0(self):
         """
         Do a more complicated yaw-pitch-roll maneuver Rotate a teapot (90,-90,0)
         in yaw-pitch-roll which is an Z-Y-X Tait Bryan Euler rotation. The
-        teapot should end up with it's base at the origin with base facing
-        positive X, handle facing negative Y, spout facing positive Y and
-        X completing the right-handed set
+        teapot should end up with it's base at the world origin with base facing
+        (in world coordinate space) positive X, handle facing negative Z, spout
+        facing positive Z and X completing the right-handed set
         """
         # Make node2 a child of node1
         self.node1.set_pose(ypr=(90.0, -90.0, 0.0))
@@ -182,24 +182,25 @@ class VirgoSceneNodeTestCase(VisualizableTestCase):
 
         # The matrix we expect inside local_transform after this ypr rotation
         expected_matrix = np.array([
-          [0.0, 0.0, -1.0, 0.0],
-          [1.0, 0.0, 0.0,  0.0],
-          [0.0, -1.0, 0.0, 0.0],
-          [0.0, 0.0, 0.0,  1.0],
+          [0.0, -1.0,  0.0, 0.0],
+          [0.0,  0.0, -1.0,  0.0],
+          [1.0,  0.0,  0.0, 0.0],
+          [0.0,  0.0,  0.0,  1.0],
         ])
         for i in range(4):
           for j in range(4):
             self.assertAlmostEqual(expected_matrix[i, j], self.node1.local_transform.GetMatrix().GetElement(i, j))
-
         #self.vis(actors=self.node1.assembly, show_origin=1, show_grid=1)
+
 
     def test_set_pose_ypr_neg90_neg180_neg90(self):
         """
-        Do a more complicated yaw-pitch-roll maneuver Rotate a teapot 
+        Do a more complicated yaw-pitch-roll maneuver Rotate a teapot
         (-90,-180,-90) in yaw-pitch-roll which is an Z-Y-X Tait Bryan Euler
-        rotation. The teapot should end up with the base at the origin,
-        lid pointing at negative X, spout pointing at positive Z,
-        and Y completing the right-handed set
+        rotation. The teapot should end up with it's base at the world origin
+        with base facing (in world coordinate space) negative Z, handle facing
+        negative Y, spout facing positive Y and X completing the right-handed
+        set
         """
         # Make node2 a child of node1
         self.node1.set_pose(ypr=(-90.0, -180.0, -90.0))
@@ -207,34 +208,67 @@ class VirgoSceneNodeTestCase(VisualizableTestCase):
 
         # The matrix we expect inside local_transform after this ypr rotation
         expected_matrix = np.array([
-          [0.0, -1.0, 0.0, 0.0],
-          [0.0, 0.0, -1.0, 0.0],
-          [1.0, 0.0, 0.0,  0.0],
+          [0.0, 0.0, 1.0, 0.0],
+          [1.0, 0.0, 0.0, 0.0],
+          [0.0, 1.0, 0.0,  0.0],
           [0.0, 0.0, 0.0,  1.0],
         ])
+        self.node1.show_axes()
+        #self.vis(actors=self.node1.assembly, show_origin=1, show_grid=1)
         for i in range(4):
           for j in range(4):
             self.assertAlmostEqual(expected_matrix[i, j], self.node1.local_transform.GetMatrix().GetElement(i, j))
 
-        #self.vis(actors=self.node1.assembly, show_origin=1, show_grid=1)
 
     def test_set_pose_ypr_180_90_90(self):
+        """
+        Do a more complicated yaw-pitch-roll maneuver Rotate a teapot
+        (180,90,90) in yaw-pitch-roll which is an Z-Y-X Tait Bryan Euler
+        rotation. The teapot should end up with it's base at the world origin
+        with base facing (in world coordinate space) positive X, handle facing
+        positive Z, spout facing negative Z and X completing the right-handed
+        set
+        """
         self.node1.set_pose(ypr=(180.0, 90.0, 90.0))
         self.node1.show_axes()
         mat = self.node1.local_transform.GetMatrix()
 
         # The matrix we expect inside local_transform after this ypr rotation
         expected_matrix = np.array([
+          [0.0, -1.0, 0.0, 0.0],
           [0.0,  0.0, 1.0, 0.0],
           [-1.0, 0.0, 0.0, 0.0],
-          [0.0, -1.0, 0.0, 0.0],
           [0.0,  0.0, 0.0, 1.0],
         ])
+        #self.vis(actors=self.node1.assembly, show_origin=1, show_grid=1)
         for i in range(4):
           for j in range(4):
             self.assertAlmostEqual(expected_matrix[i, j], self.node1.local_transform.GetMatrix().GetElement(i, j))
-        #self.node1.silhouette_polydata.SetCamera(self.camera)
+
+    def test_set_pose_pos_and_ypr(self):
+        """
+        Call set_pose() with both pos and ypr defined
+
+        The teapot should end up with it's base at (1, 0, 0) in world coords
+        with base facing (in world coordinate space) negative Y, handle facing
+        positive Z, spout facing negative Z and X completing the right-handed
+        """
+        # Make node2 a child of node1
+        self.node1.set_pose(pos=(1.0, 0.0, 0.0), ypr=(0.0, 90.0, 0.0))
+        self.node1.show_axes()
+
+        # The matrix we expect inside local_transform after this ypr rotation
+        expected_matrix = np.array([
+          [0.0,  0.0, 1.0, 1.0],
+          [0.0,  1.0, 0.0, 0.0],
+          [-1.0, 0.0, 0.0, 0.0],
+          [0.0,  0.0, 0.0, 1.0],
+        ])
         #self.vis(actors=self.node1.assembly, show_origin=1, show_grid=1)
+        for i in range(4):
+          for j in range(4):
+            self.assertAlmostEqual(expected_matrix[i, j], self.node1.local_transform.GetMatrix().GetElement(i, j))
+
 
     def test_set_pose_dcm_identity(self):
         """

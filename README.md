@@ -86,6 +86,7 @@ source .venv/bin/activate
 * **VIRGO Actors** are 3D objects rendered in the scene and are defined by the `actors:` section of the scene dictionary. They can be positioned and oriented statically in the scene or driven by data sources.
   * **VIRGO Vectors** are **VIRGO Actors** that must be represented as an arrow in 3D space. Vectors are defined in the `vectors:` section of the scene dictionary and accept a position value which defines the tip of the vector to be drawn. 
   * **VIRGO Frames** are **VIRGO Actors** that have no mesh geometry. You can think of them as a reference frame positioned and oriented relative to some other reference frame or the world coordinates origin if the frame has no parent.
+* **World Coordinates** refer to the root 3D reference frame in the VIRGO window provided by VTK. This is akin to "inertial coordinates" in the engineering domain. Note that VTK and therefore VIRGO are unitless, which requires the user to ensure a consistent unit system is used across all actors in the scene.
 * **VIRGO Nodes** define the scene graph tree by managing **VIRGO Actors, Frames, and Vectors** as well as their position and orientation with respect to their parent or world coordinates if no parent is defined. Every actor, frame, and vector is automatically assigned and parented to a unique node of the same name. When objects move in a VIRGO scene it's usually because their underlying **VIRGO Node** is moving through space.  
 * **Parents** allow nodes containing actors, frames, and vectors, to be defined relative to another actor, frame, or vector, by defining a `parent:` relationship. If a node has a parent that means all transformations on that node will be performed relative to that parent. Nodes and their parental relationships fully define one or more [directed acyclic graph trees](https://en.wikipedia.org/wiki/Tree_(graph_theory)) which contain all the information needed to determine world position/orientation of any actor in the scene.
 * **Root nodes** are nodes have no parents and therefore are positioned and oriented with respect to world coordinates (often considered inertial space)
@@ -95,25 +96,165 @@ source .venv/bin/activate
 
 ### Actors
 
-Details TBD
+Actors, terminology borrowed from VTK itself, are the objects in the 3D scene. A `VirgoActor` inherits from the [vtkActor](https://vtk.org/doc/nightly/html/classvtkActor.html) class provided by VTK, adding some useful functionality to that base class.  Just like in a movie, actors are placed into a scene and have a defined position and orientation relative to the world coordinate origin (0,0,0). Those positions and orientations may or may not change over time, and we only need a time history of these parameters to visualize an animation of an actor in 3D space. There are actually more parameters than just position and orientation - scale (size of the object) and opacity (transparency level between 0.0 and 1.0) are also attributes of an actor that can be set statically, or observed over time using the `driven_by:` clause.
+
+#### `mesh:`
+
+The `mesh:` section of an actor's dictionary defines what the 3D geometry looks like and should either be a named `VIRGO_PREFAB` or a path to a 3D geometry file (`*.stl` or `*.obj`). Tools like [blender](https://www.blender.org/) can be used to create 3D meshes and exported to these supported file formats.
+
+#### VIRGO_PREFAB meshes
+
+One of the most useful user facing features is the list of provided `VIRGO_PREFAB` mesh choices that allow for quick and easy creation of an actor and it's associated 3D geometry. This list and their capabilies are currently under development, but a quick `grep VIRGO_PREFAB VirgoActor.py` will give you a good place to start exploring prefabricated meshes. 
+
+Prefabs should be specified in the `mesh:` section of an actor's dictionary, for example if you wanted a box in your scene represented as a cube, you would specify it like this:
+
+```yaml
+actors:
+  my_box:                      # User-defined name for this actor
+    mesh: VIRGO_PREFAB:cube    # 3D representation of the object, a cube
+    scale: 3.0                 # The cube is 3 units wide/tall/deep
+    color: [0.54, 0.27, 0.074] # The box is brown (rgb 0.0->1.0)
+```
+
+Another example, if you are building a scene in outer space, you might want an earth in your scene, you can do that with a section that looks like this:
+
+```yaml
+actors:
+  earth:                      # User-defined name for this actor
+    mesh: VIRGO_PREFAB:earth  # Use low-resolution earth prefab texture
+    scale: 1.0                # The earth is already 6378137 meters big so 
+                              # there's no need to change this unless your
+                              # scene is using imperial units
+```
+
+See also the `examples/` section which uses most if not all of the prefabs available.
+
+#### `driven_by:`
+
+An actor's optional `driven_by:` clause is used to define which data aliases map to which parameters of the actor. This is how you tell an actor how to move over time.  Here's a simple `ball` actor which is configured to have it's position driven by `ball_pos`:
+```yaml
+actors:
+  ball:
+    driven_by:
+      time: sim_time  # Time is defined as sim_time: from section below
+      pos: ball_pos   # Position is defined as sat_pos alias in section below
+```
+See the [data_source: section](#configure-scenes-with-a-yaml-file) for more information on how `ball_time` and `ball_pos` aliases are defined. This section of the `ball:` actor tells VIRGO that the position of this actor should map to the time history of the `ball_pos` alias which is a 3-array (vector) of floating point values. For a ball moving in the X-direction over 5 seconds, internally the time history data looks something like this:
+
+```csv
+time, ball_pos[0], ball_pos[1], ball_pos[2], 
+0.0,          0.0,         0.0,         0.0,
+1.0,          1.0,         0.0,         0.0,
+2.0,          2.0,         0.0,         0.0,
+3.0,          3.0,         0.0,         0.0,
+4.0,          4.0,         0.0,         0.0,
+5.0,          5.0,         0.0,         0.0,
+```
+See the [driven_by: section of the full yaml file](#configure-scenes-with-a-yaml-file) for all possible `driven_by:` parameters.
+
+#### `parent:`
+
+Parents allow actors to be defined relative to other actors in position and orientation, and the parental relationship is defined in the dictionary using the `parent:` clause which contains the name of the other actor this actor is defined with respect to.  Consider this example - you have a simulation of a common carousel ride you see at theme parks. The entire ride rotates while individual seats move up and down. Let's simplify it and say there's only one seat.
+
+In this example, our simulation provides the rotation of the floor of the carousel as a time history of a rotation matrix which we will assign to the VIRGO data alias `carousel_rot`. The simulation also provides the the position of the seat as a time history of vector of positions relative to the rotating floor, which we will assign to the VIRGO alias `seat_pos`. It is important to note that the simulation **does not provide** the position/orientation of the seat relative to inertial coordinates.
+
+Here's what a VIRGO configuration for this simulation might look like:
+
+```yaml
+actors:
+  carousel_disc:  # The floor of the ride which rotates
+     mesh: VIRGO_PREFAB:cylinder
+    driven_by:
+      time: sim_time
+      rot:  carousel_rot  # Data alias for rotation matrix of floor
+  seat1:
+    mesh: VIRGO_PREFAB:cube  # Represent the seat as a cube
+    driven_by:
+      time: sim_time
+      pos: seat_pos       # Data alias for position of seat
+    parent: carousel_disc
+```
+In this example, the `parent: carousel_disc` clause tells VIRGO that all `driven_by:` motion from `pos: seat_pos` is defined relative to `carosel_disc`, not in explicit world coordinates. If however the simulation did specify the seat motion (position and orientation) in inertial/world coordinates, this `parent:` relationship is no longer necessary, and this configuration could be used instead:
+
+```yaml
+actors:
+  carousel_disc:  # The floor of the ride which rotates
+     mesh: VIRGO_PREFAB:cylinder
+    driven_by:
+      time: sim_time
+      rot:  carousel_rot  # Data alias for rotation matrix of floor
+  seat1:
+    mesh: VIRGO_PREFAB:cube  # Represent the seat as a cube
+    driven_by:
+      time: sim_time
+      pos: seat_pos       # Data alias for position of seat
+      rot: seat_rot       # Data alias for rotation of seat
+```
+In the VIRGO framework the `parent:` relationships end up defining [directed acyclic graph trees](https://en.wikipedia.org/wiki/Tree_(graph_theory)) as nested [`vtkAssembly`s](https://vtk.org/doc/nightly/html/classvtkAssembly.html) which allow objects in the scene to move relative to each other. Note that actors can also be parented to frames and vice-versa.
+
+#### `pos:` and `ypr:`
+
+For actors, the `pos:` and `ypr:` clauses allow you to define a position/rotation offset of the actor's mesh relative to the actor's local coordinate system. This can be helpful if the mesh coordinate system isn't correct for your usage and a simple rotation or position offset can fix it.  It's important to understand that driven actors which specify `pos:` and/or `ypr:` will still be `driven_by:` their local coordinate origin, not the new offset location defined by `pos:` and/or `ypr:`. Consider this example where the teapot actor has no `pos:` offset on the left, but a `pos: [3, 0, 0]` offset on the right:
+
+![actor_offset_example](images/doc/actor_offset_example.png)
+
+In both of these cases, the teapot's `driven_by:` clause will move the X-Y-Z coordinate origin.
 
 ### Frames
 
-Details TBD
+Frames are actors that have no mesh and are often used to define useful engineering coordinates systems associated with data you wish to visualize. These coordinate systems can be nested and referenced relative to each other using the `parent:` clause. Consider the following common aerospace example where an earth-fixed frame (a frame that rotates with the earth rotation) is parented to an earth inertial frame (a frame centered at earth that doesn't rotate):
+
+```yaml
+frames:
+  # ECI (Earth Centered Inertial) frame - aligns with world coordinates
+  eci_frame:
+    pos: [0.0,0.0,0.0]  # No offset from world coordinate origin
+    ypr: [0.0,0.0,0.0]  # No offset from world coordinate origin
+
+  # ECEF (Earth Centered Earth Fixed) - rotates with the earth
+  ecef_frame:
+    parent: eci_frame
+    driven_by:  # Actor position/rotation driven by these data aliases
+      time: time
+      rot: earth_rot
+```
+In this example, the `earth_rot` data alias is setup as a time history of [the RNP (Rotation Nutation Precession) matrix of earth](https://space-geodesy.nasa.gov/multimedia/videos/EarthOrientationAnimations/EOAnimations.html). With this configuration of frames, we can parent an earth actor directly to the `ecef_frame` and we'll see the earth move with that frame even though `earth:` has no `driven_by:` clause!
+
+```yaml
+actors:
+  earth: 
+    mesh: VIRGO_PREFAB:earth
+    backface_culling: 1
+    scale: 1.0
+    pos:   [0.0, 0.0, 0.0]
+    ypr:   [0.0, 0.0, 0.0]
+    pickable: 0
+    parent: ecef_frame
+```
+Cool beans man!  See `examples/launch/` for this ECI/ECEF frame representation in action.
+
+One more important difference between `frames:` and `actors:` is how `pos:` and `ypr:` are interpretted. For actors, these represent an offset of the `mesh:` from the local origin coordinates of the actor, but for frames these represent the actual location of the frame relative to it's parent or world coordinates if no parent is given. Typically a frame is either specifying a static (non-changing) `pos:`/`ypr:` relative to it's parent **or** a dynamic `driven_by:` clause, not both.
 
 ### Vectors
 
-Details TBD
+Vectors are actors whose mesh must be a 3D arrow and these are used to represent traditional engineering vectors - typically a direction and a unit or non-unit magnitude.  Parameters for customizing the arrow's visual appearance are provided, see the [`vectors:` section of the YAML reference](#configure-scenes-with-a-yaml-file) for a full list of options.
+
+Other differences specific to vectors and not actors are summarized as follows:
+* The `mesh:` clause may not be specified for vectors
+* [trail:](#trails) is not supported for vectors
+* VIRGO vectors with a `driven_by:` clause may specify `time:` and `pos:` but not `rot:`. Note that `pos:` is the vector's X,Y,Z components relative to it's parent, or world coordiantes if no parent is specified. 
 
 ## Data Playback
 
-Details on the playback rate and showing data at a particular world time go here.
+TBD: Details on the playback rate and showing data at a particular world time go here.
 
 ## Trails
 
 Trails are lines drawn between world coordinate points occupied by actors as they are encountered by changing the world time in the interactive scene. They show you where an actor has been in the past (or future if stepping backward) and are very useful for showing spacecraft orbits to end users.  Trails can be enabled/disabled with the `t` key and are completely reset when reaching the start/end boundary of simulation data associated with the scene. Trails are also reset if the world time is commanded to another location via `time <new_time>` in the console.
 
 It's important to note that because VIRGO doesn't necessarily render every time step associated with simulation data, the visible trail may not be displaying all spatial points between two positions. For example if simulation data is provided every 1.0 seconds, but the playback speed is set to 1000X while trails are enabled, many simulation data points will be skipped as the scene renders data points only at the simulation data encountered rendered frame to rendered frame.
+
+Additionally, trails are automatically created as segmented actors in the scene, which means if a trail gets long enough another segment is created until the segment buffer is full. This is still under development but allows for more realistic trails in very large scale scenes as these trail actors interact with the [rendering layers](#rendering-layers).
 
 ## Camera
 
@@ -127,7 +268,7 @@ While using the interactive window the lighting mode can be seen in the top-righ
 
 ## Console
 
-Press \` (backtick) to toggle the console and type `help` to see what commands are available. The console is a terminal-like method to manipulate a VIRGO scene in more complex ways. For example if you want to clear the trails, run `reset_trails`. If you want to jump to a particular time, type `time <value>` to go there. This feature is experimental and commands are likely to change over time, so check `help` for up to date information on using the console.
+Press \` (backtick) to toggle the console and type `help` to see what commands are available. The console is a terminal-like method to manipulate a VIRGO scene in more complex ways. For example if you want to clear the trails, run `reset_trails`. If you want to jump to a particular time, type `time <value>` to go there. This feature is still under development and commands are likely to change over time, so check `help` for up to date information on using the console.
 
 ## Units
 
@@ -230,11 +371,13 @@ actors:     # The dictionary which holds all actors in the scene. The
             #   x,y,z. Defaults to 1.0
     pos:    # Optional list of 3 floats defining the position offset of
             #   the mesh within the node this actor is contained within
-            #   defaults to [0, 0, 0]
+            #   This is applied before any rotation from ypr: and defaults
+            #   to [0, 0, 0]
     ypr:    # Optional list of 3 floats defining the yaw-pitch-roll offset
             #   in degrees of the mesh within the node local origin this
             #   actor is associated with. This list is a Z,Y,X ordered
-            #   intrinsic Euler rotation. Defaults to [0, 0, 0]
+            #   intrinsic Euler rotation. This is applied after any offset
+            #   from pos: and defaults to [0, 0, 0]
     color:  # Optional list of 3 floats between 0.0-1.0 defining the
             #   [red, green, blue] values of the color this actor should be
             #   TODO: Figure out out this works with textured meshes
@@ -359,13 +502,13 @@ frames:     # The dictionary which holds all frames in the scene. A frame is
             #   below. 
     pos:    # Optional list of 3 floats defining the position offset of
             #   the frame relative to it's parent, or world coordinates if
-            #   no parent given. This is applied once when the scene starts
-            #   and defaults to [0, 0, 0]
+            #   no parent given. This is applied before any rotation from
+            #   ypr: and defaults to [0, 0, 0]
     ypr:    # Optional list of 3 floats defining the yaw-pitch-roll offset
             #   in degrees of the frame relative to it's parent, or world
             #   coordinates if no parent given. This list is a Z,Y,X ordered
-            #   intrinsic Euler rotation. This is applied once when the scene
-            #   starts and defaults to [0, 0, 0]
+            #   intrinsic Euler rotation. This is applied after any offset
+            #   from pos: and defaults to [0, 0, 0]
 
 vectors:    # The dictionary which holds all vectors in the scene. A vector is
             #   an actor whose mesh is automatically set to an 3D arrow. 

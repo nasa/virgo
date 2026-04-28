@@ -144,10 +144,12 @@ vectors:
 sun:
   direction:   [0.0, -1.0, 0.0]  # World vector pointing towards sun
   #driven_by: rope1  # A node whose world position drives where the sun is
-camera:
-  # Initial position of camera in scene, since follow: is defined this is
-  # relative to the attachment1 actor
-  position:    [0.0, -5.0, 3.0]
-  focal_point: [0.0, 0.0, 0.0]  # Where the camera looks initially
-  view_up: [0.0, 0.0, 1.0]      # Direction of up for the camera: +Z
-  follow: attachment1            # Optional, follow the attachment1 actor
+cameras:
+  default:
+    # Initial position of camera in scene, since parent: is defined this is
+    # relative to the attachment1 actor
+    pos:         [0.0, -5.0, 3.0]
+    parent: attachment1            # Optional, follow the attachment1 actor
+    # These parameters are only respected if parent: is removed
+    #focal_point: [0.0, 0.0, 0.0]  # Where the camera looks initially
+    #view_up:     [0.0, 0.0, 1.0]      # Direction of up for the camera: +Z

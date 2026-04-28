@@ -1,6 +1,6 @@
 # Hello Cube Example
 
-This directory provides the smallest possible example of VIRGO rendering a cube in space with no motion. This is intended to be the first VIRGO example a new user runs and allows them to look at the basics of navigating the scene. Files of importance:
+This directory provides the smallest possible example of VIRGO rendering a cube in space with no motion. This is intended to be the first VIRGO example a new user runs and allows them to look at the basics of navigating the scene with cameras. Files of importance:
 
 * `hello_cube.py`: Renders a simple VIRGO scene with two cubes
 * `scene.yml`: YAML scene file representing the `dict` VIRGO needs to build the 3D scene
@@ -19,9 +19,13 @@ Press 'h' to toggle help while the scene is active to see how to use the control
 * Left-click-hold and drag to rotate around the focal point
 * Shift-Left-click-hold or middle-mouse-hold to pan
 * Mouse-wheel up/down to dolly in/out respectively
-* Ctrl (command on mac)-left-click-hold to roll the camera
 * Right-click on an actor to pick/select it
-* Press `c` on a picked actor to have the camera follow it. When a camera follows an actor, the camera's focal point is moved to that actor's origin.
+* Ctrl (command on mac)-left-click-hold to roll the camera
+* Press `c` on a picked actor to have the camera follow it, creating a `parent:` relationship. When a camera follows an actor, the camera's focal point is moved to that actor's origin and the relative distance to the followed actor is maintained with the motion of that actor over time.
+* Press `C` to switch the camera between trackball and first-person view modes. In trackball mode, click-drag will orbit the camera around a focal point.  In first-person mode, click-drag will rotate the view of the camera in place without moving the camera's position.
+* Press up/down arrows to switch camera views
+
+Exploring how cameras work in VIRGO is one purpose of this example. Notice that cameras will retain their properties even when switching away from their view. Static cameras are essentially fixed and cannot move.  These are typically parented to a `frame:` when wanting to see what a real camera would actually see when positioned in the VIRGO scene. See the Cameras section of the documentation for more information.
 
 You will notice that several keys will not do anything because this scene is so minimal some features aren't active.  A few of of the features *not* enabled in this scene:
 

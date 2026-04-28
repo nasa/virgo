@@ -1,4 +1,4 @@
-from Virgo import VirgoScene, VirgoControlCenter, VirgoInteractorStyle
+from Virgo import VirgoScene, VirgoControlCenter, VirgoTrackballInteractorStyle
 from VirgoTrickpyFileLoader import VirgoTrickpyFileLoader
 from VirgoDataSource import VirgoDataFileSource
 from VirgoNode import VirgoSceneNode
@@ -14,21 +14,18 @@ class VirgoDataPlayback(VirgoScene):
     """
     def __init__(self, run_dir, scene, verbosity=1, headless=False,
                  images_dir="/tmp/", video_filename="/tmp/virgo.mp4",
-                 splash=True, scene_yaml_path=None,
-                 _class_controller=VirgoControlCenter,
-                 _class_interactor_style=VirgoInteractorStyle):
+                 splash=True, scene_yaml_path=None):
         self.run_dir = run_dir
         self.vdl = None
         super().__init__(scene=scene, verbosity=verbosity, headless=headless,
                          images_dir=images_dir, video_filename=video_filename,
-                         splash=splash, scene_yaml_path=scene_yaml_path,
-                         _class_controller=_class_controller,
-                         _class_interactor_style=_class_interactor_style)
+                         splash=splash, scene_yaml_path=scene_yaml_path)
 
     def _verify_scene(self):
         super()._verify_scene()
         #import pdb; pdb.set_trace()
-        if 'data_source' in self.scene and 'trickpy' in self.scene['data_source']:
+        if ('data_source' in self.scene and self.scene['data_source'] and
+           'trickpy' in self.scene['data_source']):
             self.vdl = VirgoTrickpyFileLoader(run_dir=self.run_dir, 
                 trickpy_dict=self.scene['data_source']['trickpy'], verbosity=self.verbosity)
 

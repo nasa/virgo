@@ -9,17 +9,19 @@ class VirgoHud:
     associated with overlays.  This includes information about picked actors,
     world time, playback mode, camera/lighting, etc.
     """
-    def __init__(self, render_window, renderers, text_actors, nodes, color=[1.0, 1.0, 1.0]):
+    def __init__(self, render_window, renderers, text_actors,
+                 nodes, cameras, color=[1.0, 1.0, 1.0]):
         # References to structures provided by VirgoControlCenter
         self.render_window = render_window
         self.renderers = renderers
         self.text_actors = text_actors
         self.nodes = nodes
+        self.cameras = cameras
         self.color = color
         self.set_color(self.color)
         # Will be copied once per configure() call from the calling class
         self.mode = None
-        self.camera_follows = None
+        self.node_camera_follows = None
         self.playback_speed = None
         self.picked_actor = None
         self.near_clipping_plane_tolerance = None
@@ -111,7 +113,7 @@ class VirgoHud:
         y_pos = window_height - text_height - hud_padding  # Bottom edge (20 pixels from bottom)
         self.text_actors['mode'].SetPosition(x_pos, y_pos)
 
-    def configure_time(self, window_width, window_height, hud_padding=20):
+    def configure_time_and_lighting(self, window_width, window_height, hud_padding=20):
         """
         Configure HUD with the time information (upper right)
         """
@@ -128,29 +130,34 @@ class VirgoHud:
         self.text_actors['time'].SetInput(
             f"World time: {self.world_time:<10.5f} / {self.max_sim_time} sec [{percent_complete} %]"
             )
+
+        lighting_info = f"Lighting: {self.lighting_mode}" 
+        self.text_actors['lighting'].SetInput(f"{lighting_info}")
+        bounds_lighting = [0] * 4 # Get the text bounding box in display coordinates  [xmin, xmax, ymin, ymax]
+        self.text_actors['lighting'].GetBoundingBox(self.renderers['foreground'], bounds_lighting)
+        lighting_text_width = bounds_lighting[1] - bounds_lighting[0] + 1  # Width in pixels
+        lighting_text_height = bounds_lighting[3] - bounds_lighting[2] + 1  # Height in pixels
+        self.text_actors['lighting'].SetPosition(hud_padding, y_pos-lighting_text_height)
+
     def configure_camera(self, window_width, window_height, hud_padding=20):
         """
         Configure HUD with camera information (top center right-ish)
         """
-        camera_info = f"Camera: Follow {self.camera_follows.name}" if self.camera_follows else "Camera: Free" 
+        camera_info = f"Camera: {self.camera.get_name()}\n{self.camera_style}"
+        camera_info += f", static" if self.camera.is_static() else "" 
+        camera_info += f"\nparent: {self.camera.get_parent_name()}"
         self.text_actors['camera'].SetInput(f"{camera_info}")
-        lighting_info = f"Lighting: {self.lighting_mode}" 
-        self.text_actors['lighting'].SetInput(f"{lighting_info}")
         # Compute the bounding boxes of the camera and lighting text actors
-        bounds_camera = bounds_lighting = [0] * 4 # Get the text bounding box in display coordinates  [xmin, xmax, ymin, ymax]
+        bounds_camera = [0] * 4 # Get the text bounding box in display coordinates  [xmin, xmax, ymin, ymax]
         self.text_actors['camera'].GetBoundingBox(self.renderers['foreground'], bounds_camera)
-        self.text_actors['lighting'].GetBoundingBox(self.renderers['foreground'], bounds_lighting)
         camera_text_width = bounds_camera[1] - bounds_camera[0] + 1  # Width in pixels
         camera_text_height = bounds_camera[3] - bounds_camera[2] + 1  # Height in pixels
-        lighting_text_width = bounds_lighting[1] - bounds_lighting[0] + 1  # Width in pixels
-        lighting_text_height = bounds_lighting[3] - bounds_lighting[2] + 1  # Height in pixels
-        max_width = max(camera_text_width, lighting_text_width)
         # Calculate position for bottom-right corner with padding
-        camera_x_pos = (window_width - max_width - hud_padding)/1.5  # 2/3ish the way over on right side
+        camera_x_pos = (window_width - camera_text_width - hud_padding)/1.5  # 2/3ish the way over on right side
         camera_y_pos = window_height - camera_text_height - hud_padding  # Top edge (20 pixels from bottom)
         self.text_actors['camera'].SetPosition(camera_x_pos, camera_y_pos)
 
-        self.text_actors['lighting'].SetPosition(camera_x_pos, camera_y_pos-camera_text_height)
+        #import pdb; pdb.set_trace()
 
     def configure_help(self, window_width, window_height, hud_padding=20):
         """
@@ -172,10 +179,12 @@ class VirgoHud:
                 f"\n s: Cycle playback speeds"
                 f"\n t: Toggle trails"
                 f"\n <- -> : Step back/forward in time"
-                f"\n  -  + : Adjust HUD text size"
+                f"\n -  + : Adjust HUD text size"
                 f"\n a: Toggle Axes Visibility"
                 f"\n d: Toggle debug info in HUD"
-                f"\n c: Toggle camera free/follow-picked"
+                f"\n up/down : Switch cameras"
+                f"\n C: Toggle cam trackball/first-person"
+                f"\n c: Parent/unparent camera to picked"
                 f"\n l: Toggle Lighting Mode"
                 f"\n L: Toggle Node Label Visibility"
                 f"\n v: Print picked node info in terminal"
@@ -214,6 +223,10 @@ class VirgoHud:
                 aatl = t.get_trail_actors_and_their_layers()
                 for a, l in aatl:
                   text += f"\ntrail:{n}:{l}"
+        for c in self.cameras:
+            n = self.cameras[c].name
+            p = self.cameras[c].get_position()
+            text += f"\ncam-{n}:{p}"
         return(text)
 
     def configure_version(self, window_width, window_height, hud_padding=20):
@@ -232,9 +245,10 @@ class VirgoHud:
         self.text_actors['version'].SetPosition(hud_padding, text_height + hud_padding)
         self.text_actors['version'].SetInput(version_text)
 
-    def configure(self, mode, camera_follows, playback_speed, picked_actor,
-                  picker_tolerance, world_time, min_sim_time, max_sim_time,
-                  near_clipping_plane_tolerance, lighting_mode, help):
+    def configure(self, mode, camera_style, camera, playback_speed,
+                  picked_actor, picker_tolerance, world_time, 
+                  min_sim_time, max_sim_time, near_clipping_plane_tolerance,
+                  lighting_mode, help):
         """
         Configure the heads-up-display.  Calls functions for each logical
         section of the HUD. Does not render.
@@ -242,7 +256,8 @@ class VirgoHud:
         Parameters passed in are needed to compute info in the HUD
         """
         self.mode = mode
-        self.camera_follows = camera_follows
+        self.camera_style = camera_style
+        self.camera = camera
         self.playback_speed = playback_speed
         self.picked_actor = picked_actor
         self.picker_tolerance = picker_tolerance
@@ -256,7 +271,7 @@ class VirgoHud:
         ww, wh  = self.render_window.GetSize()
         self.configure_picked_info(window_width=ww, window_height=wh)
         self.configure_mode(window_width=ww, window_height=wh)
-        self.configure_time(window_width=ww, window_height=wh)
+        self.configure_time_and_lighting(window_width=ww, window_height=wh)
         self.configure_camera(window_width=ww, window_height=wh)
         self.configure_help(window_width=ww, window_height=wh)
         self.configure_version(window_width=ww, window_height=wh)

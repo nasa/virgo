@@ -1,8 +1,8 @@
 name: VIRGO Hello Cube Example
 description: |
-    This scene visualizes a cube and provides the smallest example
-    possible of a VIRGO scene. Press 'h' to toggle help to understand
-    how to control and navigate the scene
+    This scene visualizes a cube and provides the smallest example possible of a
+    VIRGO scene as well as a demonstration of how cameras operate. Press 'h' to
+    toggle help to understand how to control and navigate the scene
 background_color: [0.4, 0.4, 0.4] # gray background color
 # The list of actors in this scene - two cubes
 actors:
@@ -15,10 +15,29 @@ actors:
     mesh: VIRGO_PREFAB:cube
     scale: 1.5               # Make this cube 1.5 units in size
     color: [1.0, 0.0, 0.0]   # Color this cube red
-camera:
-  # Initial position of camera in scene, since follow: is defined this is
-  # relative to the green_cube actor
-  position:    [0.0, -5.0, 3.0]
-  focal_point: [0.0, 0.0, 0.0]  # Where the camera looks initially
-  view_up: [0.0, 0.0, 1.0]      # Direction of up for the camera: +Z
-  follow: green_cube            # Optional, follow the green_cube actor
+# The list of frames in this scene - just one
+frames:
+ cam_frame:  # This frame is positioned in -X from cubes
+   pos: [-4.0, 0.0, 0.0]    
+   axes:
+     when: always # Show axes always so we can see where cam will be
+     style: line  # Change to when: never to suppress the axes
+cameras:
+  # The default camera is parented to the green_cube
+  default:
+    pos:    [0.0, -5.0, 3.0]      # Offset from parent's position
+    view_up: [0.0, 0.0, 1.0]      # Direction of up for the camera: +Z
+    parent: green_cube            # Optional, parent the green_cube actor
+  # This camera is set to be parented to the red_cube and be static,
+  # so the user cannot move it
+  cam1:
+    pos:    [0.0, 5.0, 3.0]       # Offset from parent's position
+    view_up: [0.0, 0.0, 1.0]      # Direction of up for the camera: +Z
+    parent: red_cube              # Optional, parent the red_cube actor
+    static: 1
+  # This camera is placed exactly on the cam_frame origin, which makes the
+  # camera point +X with +Z in the up direction
+  cam2:
+    pos:    [0.0, 0.0, 0.0]
+    mode: FP
+    parent: cam_frame

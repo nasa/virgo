@@ -59,7 +59,7 @@ class VirgoScreenSaverControlCenter(VirgoControlCenter):
             if self.nodes[n].parent == None:
                 self.nodes[n].report()
     if key == "c":
-        self.toggle_camera_modes()
+        self.change_active_camera_parent_from_picked_node()
         self.camera_report()
     if key == 'l':
         # Turn actor axes on/off
@@ -176,17 +176,16 @@ class VirgoScreenSaverControlCenter(VirgoControlCenter):
     y_pos = window_height - text_height - hud_padding  # Bottom edge (20 pixels from bottom)
     self.text_actors['thetime'].SetPosition(x_pos, y_pos)
 
-  def camera_follow(self, node, initial_offset=None):
+  def rotate(self):
     """
-    Extend the base class camera_follow() function to add a gentle rotation
-    about the focal point. The focal point can be changed by right-click
-    picking the actor and pressing 'c' to focus the camera on it.
+    Add a gentle rotation about the focal point. The focal point can be changed
+    by right-click picking the actor and pressing 'c' to focus the camera on it.
     """
-    super().camera_follow(node)
-    self.cameras['foreground'].Azimuth(self.rotation_speed)
-    if self.camera_follows:
-        pos=np.array(self.camera_follows.get_world_position())
-        self.cameras['foreground'].SetFocalPoint(pos[0], pos[1], pos[2])
+    self.cameras['default'].azimuth(self.rotation_speed)
+    parent = self.cameras['default'].get_parent()
+    if parent:
+        pos=np.array(parent.get_world_position())
+        self.cameras['default'].SetFocalPoint(pos[0], pos[1], pos[2])
     # Tell the VirgoInteractorStyle instance about our new camera position
     self.interactor.GetInteractorStyle().StoreRelativeCameraInfo(None, None)
 
@@ -200,7 +199,7 @@ class VirgoScreenSaverControlCenter(VirgoControlCenter):
     self.display_weather()
     if self.mode == 'PLAYING':
         self.update_nodes()
-        self.camera_follow(self.camera_follows)
+        self.rotate()
 
 class VirgoScreenSaver(VirgoScene):
   """

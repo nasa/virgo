@@ -1,0 +1,10 @@
+test:
+  only:
+    - merge_requests
+  script:
+    - "apt-get update && apt-get install -y python3.11 python3.11-venv python3-pip "
+    - "apt-get install -y libgl1-mesa-glx libosmesa6 libglu1-mesa"
+    - "python3.11 -m venv .venv && source .venv/bin/activate && pip3 install --upgrade pip && pip3 install -r requirements.txt"
+    - "export VTK_DEFAULT_RENDER_WINDOW_OFFSCREEN=1 && cd tests/ && ./test.py"
+
+

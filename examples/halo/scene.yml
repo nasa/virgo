@@ -72,14 +72,15 @@ actors:
     driven_by:  # Actor position/rotation driven by these data aliases
       time: time
       pos: sat_pos
-camera:
-  follow: satellite
-  position: [-100, 10, 30]
+cameras:
+  default:
+    parent: satellite
+    pos: [-100, 10, 30]
+
 sun:
   direction: [1.0, 0.0, 0.0]  # World vector pointing towards sun
 
 lighting:
-  #start_mode: realistic
-  start_mode: ultrabright
+  start_mode: realistic
   dark_ambient: 0.2
   bright_ambient: 0.7

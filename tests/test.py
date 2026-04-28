@@ -26,6 +26,8 @@ import ut_VirgoLabel
 import ut_VirgoConsole
 import ut_VirgoDictVerifier
 import ut_VirgoTrail
+import ut_VirgoCamera
+import ut_VirgoInteractorStyles
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(
@@ -57,9 +59,11 @@ if __name__ == '__main__':
         suites.addTests(ut_VirgoDataPlayback.suite())
         suites.addTests(ut_VirgoScene.suite())
         suites.addTests(ut_VirgoControlCenter.suite())
+        suites.addTests(ut_VirgoInteractorStyles.suite())
         suites.addTests(ut_VirgoConsole.suite())
         suites.addTests(ut_VirgoDictVerifier.suite())
         suites.addTests(ut_VirgoTrail.suite())
+        suites.addTests(ut_VirgoCamera.suite())
 
         # Execute all tests
         runner = unittest.TextTestRunner(verbosity=2)

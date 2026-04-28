@@ -394,7 +394,7 @@ class VirgoActor(vtkActor):
             mapper.SetInputConnection(reader.GetOutputPort())
         else:
             msg = (f"ERROR: mesh name {mesh} for {self.name}"
-                   " cannot be understood.")
+              " cannot be understood. See documentation for help")
             raise RuntimeError (msg)
         # Set the mapper to the actor
         self.SetMapper(mapper)

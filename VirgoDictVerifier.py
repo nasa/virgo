@@ -1,7 +1,7 @@
 import math, re
 from typing import Optional, List, Dict, Any
 from enum import Enum
-from pydantic import BaseModel, Field, ValidationError, field_validator, model_validator
+from pydantic import BaseModel, Field, ValidationError, field_validator, model_validator, NonNegativeInt
 """
 This module provides verification of the scene dictionary passed into
 Virgo instances at initialization. It leverages pydantic to both verify
@@ -88,13 +88,69 @@ class SunSchema(BaseModel):
     driven_by: Optional[str] = None
 
 class CameraSchema(BaseModel):
-    position: Optional[Vec3] = None
+    mode: Optional[str] = 'TB'
+    pos: Optional[Vec3] = [0, 0, 0]
     focal_point: Optional[Vec3] = None
-    view_up: Optional[Vec3] = None
-    follow: Optional[str] = None
-    near_clipping_plane_tolerance: Optional[float] = None
-    foreground_far_boundary: Optional[float] = None
-    midground_far_boundary: Optional[float] = None
+    view_up: Optional[Vec3]  = [0.0, 0.0, 1.0]
+    view_angle: Optional[float]  = 30
+    static: Optional[bool]  = False
+    frustum_when: Optional[str] = 'toggled'
+    priority: Optional[NonNegativeInt] = 0
+    parent: Optional[str] = None
+
+    @model_validator(mode='before')
+    @classmethod
+    def check_forbidden_key(cls, data):
+        if isinstance(data, dict) and 'follow' in data:
+            msg = ("follow: is no longer supported for cameras."
+            "  Use parent: instead.")
+            raise ValueError(msg)
+        return data
+
+    @field_validator("view_angle")
+    @classmethod
+    def validate_view_angle(cls, value):
+        if value < 0.0:
+            raise ValueError("view_angle must be > 0.0")
+        return value
+
+class RendererSchema(BaseModel):
+    near_clipping_plane_tolerance: Optional[float] = 1e-5
+    foreground_far_boundary: Optional[float] = 1e5
+    midground_far_boundary: Optional[float] = 1e8
+    celestial_foreground_bias: Optional[float] = 1e-2
+    # TODO check limits
+
+    @field_validator("foreground_far_boundary", "midground_far_boundary",
+                     "near_clipping_plane_tolerance")
+    @classmethod
+    def greater_than_zero(cls, v, info):
+        if v <= 0.0:
+            raise ValueError(f"must be greater than 0.0")
+        return v
+
+    @field_validator("celestial_foreground_bias")
+    @classmethod
+    def greater_than_zero_inclusive(cls, v, info):
+        if v < 0.0:
+            raise ValueError(f"must be greater than 0.0")
+        return v
+
+    @field_validator("celestial_foreground_bias",
+                     "near_clipping_plane_tolerance")
+    @classmethod
+    def not_less_than_one(cls, v, info):
+        if v >= 1.0:
+            raise ValueError(f"must be less than 1.0")
+        return v
+
+    @model_validator(mode="after")
+    def midground_bound_further_than_foreground(self):
+        if self.midground_far_boundary < self.foreground_far_boundary:
+            raise ValueError(
+                "midground_far_boundary must be > foreground_far_boundary"
+            )
+        return self
 
 class LightingSchema(BaseModel):
     start_mode: Optional[LightingMode] = Field(
@@ -346,9 +402,13 @@ class SceneSchema(BaseModel):
         default=None,
         description="Dictionary of sun data"
     )
-    camera: CameraSchema = Field (
+    cameras: Dict[str, CameraSchema] = Field (
         default=None,
         description="Dictionary of camera data"
+    )
+    renderer: RendererSchema = Field (
+        default=None,
+        description="Dictionary of renderer data"
     )
     lighting: LightingSchema = Field (
         default=None,
@@ -412,15 +472,34 @@ class SceneSchema(BaseModel):
         return self
 
     @model_validator(mode="after")
-    def validate_camera_follow_node(self):
-      if self.camera == None:
+    def validate_cameras_parents(self):
+      if self.cameras == None:
+        print("WARNING: No cameras: defined in scene. Default camera"
+              " will be placed at world coordinate origin. See cameras:"
+              " section of documentation for more information.")
         return self
-      if self.camera.follow:
-        ann = self.get_all_node_names()
-        if self.camera.follow not in ann:
-            raise ValueError(
-                f"camera cannot follow: {self.camera.follow} as it is not "
-                f"a valid actor, vector, or frame. Valid options are {ann}")
+      for cam in self.cameras:
+        if self.cameras[cam].parent:
+          parent_name = self.cameras[cam].parent
+          ann = self.get_all_node_names()
+          if parent_name not in ann:
+              raise ValueError(
+                  f"camera {cam} cannot follow parent: {cam.parent} as it is not "
+                  f"a valid actor, vector, or frame. Valid options are {ann}")
+      return self
+
+    @model_validator(mode="after")
+    def validate_cameras_priorities(self):
+      if self.cameras == None:
+        return self
+      all_priorities = [self.cameras[c].priority for c in self.cameras if self.cameras[c].priority != 0 ]
+      no_dupes = set(all_priorities)
+      if len(all_priorities) != len(no_dupes):
+        #import pdb; pdb.set_trace()
+        msg =(f"Duplicate camera priorities found. If specifying "
+              f"priority: the value must be > 0 and unique across all "
+              f"defined cameras:")
+        raise ValueError(msg)
       return self
 
     @model_validator(mode="after")

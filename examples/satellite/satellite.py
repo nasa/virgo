@@ -33,6 +33,9 @@ class SatelliteExample:
                                     headless=args.headless,
                                     video_filename=args.video_filename)
         self.v.initialize()
+        # The moon isn't driven by data, so let's rotate it to face
+        # the earth the "correct way"
+        self.v.nodes['moon'].set_pose(ypr=[180, 0, 0])
     def execute(self):
         # Start the Virgo 3D scene
         return(self.v.run())

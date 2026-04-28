@@ -309,11 +309,18 @@ class VirgoTrail:
     def set_far_boundary(self, layer, distance):
         """
         Set the far boundary of trail's in their rendering layer(s)
+        and set the max_length for each associated segment which
+        is also based on this distance
         """
         if layer == 'foreground':
             self.foreground_far_boundary = distance
+            self.latest_segment.set_max_length(
+                self.foreground_far_boundary/self.split_factor)
         elif layer == 'midground':
             self.midground_far_boundary = distance
+            for seg in self.segments:
+                seg.set_max_length(
+                    self.midground_far_boundary/self.split_factor)
 
     def update(self, world_position):
         """
@@ -390,6 +397,7 @@ class VirgoTrail:
             continue
           current_layer = segment.get_layer()
           dist_from_camera = segment.get_distance_from_camera(camera_pos)
+          #print(f"{self.node.name} curr layer: {current_layer} cam dist: {dist_from_camera}, ffb: {self.foreground_far_boundary}")
           if dist_from_camera > self.midground_far_boundary:
             layer = 'background'
           elif dist_from_camera > self.foreground_far_boundary:

@@ -9,4 +9,5 @@ pydantic
 psutil
 # requests only needed for examples/screensaver
 requests
+typing
 vtk

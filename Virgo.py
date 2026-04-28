@@ -4,6 +4,10 @@ VIRGO: Versatile Imaging and Rendering for Galactic Operations
 A Practical, Analytical, and Hardworking 3D Visualization tool
 leveraging python-VTK
 """
+from VirgoInteractorStyles import (
+  VirgoTrackballInteractorStyle,
+  VirgoInteractorStyleFirstPerson
+)
 from VirgoActor import VirgoActor
 from VirgoNode import VirgoSceneNode, VirgoSceneNodeVector
 from VirgoSplash import VirgoSplash
@@ -11,6 +15,7 @@ from VirgoHud import VirgoHud
 from VirgoConsole import VirgoConsole
 from VirgoUtils import cprint, timed_debug, time_render_layers
 from VirgoRendering import VirgoRendering
+from VirgoCamera import VirgoCamera
 
 import os, sys, inspect, time, tempfile
 import math, textwrap
@@ -57,84 +62,6 @@ from vtkmodules.vtkCommonCore import (
 
 thisFileDir = os.path.dirname(os.path.abspath(inspect.getsourcefile(lambda:0)))
 
-
-class VirgoInteractorStyle(vtkInteractorStyleTrackballCamera):
-    """
-    Virgo Interactor Style which adds some capabilities on top of the VTK
-    provided vtkInteractorStyleTrackballCamera, mostly to support keeping the
-    camera at a relative position to a followed node as that node moves
-    """
-    def __init__(self, renderers):
-        super().__init__()
-        self.node = None  # Node this camera follows (if defined)
-        self.sun = None   # Sun sphere actor to update
-        self.renderers = renderers
-        self.AddObserver("CharEvent", self.onChar)
-        self.AddObserver(vtkCommand.EndInteractionEvent, self.StoreRelativeCameraInfo, 0.0)
-        self.relative_offset = None  # Positional offset between camera and followed actor
-        self.view_up = None    # Camera GetViewUp() direction when self.realtive_offset was stored
-
-    def set_node(self, node):
-        self.node = node
-
-    def get_renderers(self):
-        return(self.renderers)
-
-    def set_renderers(self, renderers):
-        self.renderers = renderers
-
-    # Override base class onChar to ignore the 'e' key
-    def onChar(self, obj, event):
-        key = self.GetInteractor().GetKeySym()
-        if key != 'e':  # Ignore 'e' key to prevent exit
-            super().OnChar()
-
-    def StoreRelativeCameraInfo(self, caller, event):
-        '''
-        Store off the relative offset between the followed node and the camera
-        in self.relative_offset. This is called as a callback tied to
-        vtkCommand.EndInteractionEvent which lets us store the camera information
-        relative to self.node when the interaction with the mouse completes
-
-        TODO: I'm not convinced this callback needs to live in the interactor,
-            it might be better placed in the bigger Controller class especially
-            since we aren't really overriding any methods of
-            vtkInteractorStyleTrackballCamera in this approach
-        '''
-        #print(f"DEBUG: Entered StoreRelativeCameraInfo with event {event}")
-        if not self.node or not self.renderers:
-            return
-        # Update relative offset after user interaction
-        camera = self.renderers['foreground'].GetActiveCamera()
-
-        node_pos =np.array(self.node.get_world_position())
-
-        # Store off the relative offset of camera
-        self.relative_offset = np.array([camera.GetPosition()[i] - node_pos[i] for i in range(3)])
-        #print(f"DEBUG: STORING camera relative offset: {self.relative_offset}")
-        self.view_up = camera.GetViewUp()
-        #print(f"DEBUG: Finished StoreRelativeCameraInfo with event {event}")
-
-    def GetRelativeCameraInfo(self, info):
-        """
-        Get the relative offset between the followed actor and the camera
-        """
-        #print(f"DEBUG: Getting relative_offset: {self.relative_offset}")
-        if   info == 'position':
-            return self.relative_offset
-        elif info == 'view_up':
-            return self.view_up
-        else:
-            return None
-
-    def ClearRelativeCameraInfo(self):
-        """
-        Clear relative camera info
-        """
-        self.relative_offset = None
-        self.view_up = None
-
-
 def virgo_console(func: callable) -> callable:
     """
     Define the "console accessible function" decorator. When applied to a function
@@ -144,6 +71,7 @@ def virgo_console(func: callable) -> callable:
     """
     func.is_console_command = True  # marker attribute
     return func
+
 class VirgoControlCenter:
     """
     The main control center class for Virgo playback which provides the main
@@ -179,15 +107,18 @@ class VirgoControlCenter:
         self.renderers = renderers
         self.render_window = render_window
         self.cameras = {}
-        self.cameras = {}
-        self.last_clipping_ranges = {}
-        # One camera per renderer
+        # Add the cameras from each rendering layer
         for r in self.renderers:
-            self.cameras[r] = renderers[r].GetActiveCamera()
-            self.last_clipping_ranges[r] = self.cameras[r].GetClippingRange()
-        self.camera_follows = None  # If the camera should follow an actor, this is the one
-        self.camera_follow_offset = None
+            self.cameras[r] = VirgoCamera(name=r, frustum_when='never')
+            self.cameras[r].set_vtk_camera(renderers[r].GetActiveCamera())
+            self.cameras[r].store_clipping_range()
+        #import pdb; pdb.set_trace()
         self.interactor = interactor
+        self.cam_sync_observer_tag = None
+        # These interactor above this line will use one of the two styles
+        # on the following lines
+        self.trackball_style = None  # Trackball interactor instance
+        self.first_person_style = None          # First person interactor instance
         self.scene = scene
         self.skybox = self.create_skybox()
         self.actors = {}
@@ -232,6 +163,8 @@ class VirgoControlCenter:
         # Distance away from camera where foreground and midground layers end
         self.foreground_far_boundary = 1e5
         self.midground_far_boundary = 1e8
+        # Bias/scale factor for celestial objects entering the foreground
+        self.celestial_foreground_bias = 1e-2
         # Internal flag for user toggling axes on/off. This is separate from the
         # internal node flags
         self.axes_are_toggled = False
@@ -259,17 +192,19 @@ class VirgoControlCenter:
         self.initialize_images_dir()
         self.add_renderers_to_render_window()
         self._determine_max_and_min_sim_time()
+        self.init_renderer_options()
         self.initialize_nodes()
         self.initialize_trails()
         self.initialize_text_actors()
         self.initialize_scene_settings()
         self.init_lighting()
+        self.initialize_cameras()
         self.add_actors_to_renderers()
-        self.init_camera()
         self.init_picker()
         self.initialize_console()
         self.configure_renderers()
         self._initialized = True
+        self.render()
 
     def add_renderers_to_render_window(self):
         """
@@ -335,6 +270,11 @@ class VirgoControlCenter:
         for rn in self.root_nodes:
             layer = self.root_nodes[rn].get_layer()
             self.renderers[layer].AddActor(self.root_nodes[rn].assembly)
+        user_facing_cams = self.get_user_facing_cameras()
+        for c in user_facing_cams:
+            fa = user_facing_cams[c].get_frustum_assembly()
+            if fa:
+                self.renderers['foreground'].AddActor(fa)
         # Add all HUD actors to the scene
         for t in self.text_actors:
             self.renderers['foreground'].AddActor(self.text_actors[t])
@@ -355,7 +295,8 @@ class VirgoControlCenter:
         if 'hud_color' in self.scene and self.scene['hud_color'] != None:
             hud_color = self.scene['hud_color']
         self.hud = _class(self.render_window, self.renderers,
-                          self.text_actors, self.nodes, color=hud_color)
+                          self.text_actors, self.nodes,
+                          self.cameras, color=hud_color)
 
     def _determine_max_and_min_sim_time(self):
         """
@@ -484,6 +425,7 @@ class VirgoControlCenter:
         if self.force_node_update:
             self.update_scene()
 
+        self.update_cameras()
         self.configure_renderers()
         self.configure_hud()
 
@@ -497,6 +439,7 @@ class VirgoControlCenter:
     def render(self, time_each_layer=False):
         if time_each_layer == False:
             self.render_window.Render()
+            #import pdb; pdb.set_trace()
             return
         time_render_layers(self.render_window, self.renderers)
 
@@ -533,6 +476,10 @@ class VirgoControlCenter:
         location. If the node is a celestial body, return the estimated distance
         to the front surface of that body, otherwise return the distance to the
         center of node
+
+        TODO: Note this logic uses the bounding box of the celestial body so
+        the less spherical the object is the less likely this algorithm is
+        to perform as desired.
         """
         # Get assembly position (cheapest approach)
         world_pos = np.array(node.get_world_position())
@@ -568,8 +515,9 @@ class VirgoControlCenter:
         #print(f"  root_nodes: {self.root_nodes}")
         
         # Get the foreground camera position (all cameras share this position)
-        main_camera = self.cameras['foreground']
-        camera_pos = np.array(main_camera.GetPosition())
+        main_vtk_camera = self.get_active_vtk_camera()
+        main_camera = self.get_active_camera()
+        camera_pos = np.array(main_vtk_camera.GetPosition())
         #print(f"  camera_pos: {camera_pos}")
         
         # Calculate distances for all root nodes
@@ -617,7 +565,7 @@ class VirgoControlCenter:
 
         # Tell each trail to optimize which layer their points exist in
         for a in self.trails:
-            self.trails[a].configure_layers(self.cameras['foreground'].GetPosition())
+            self.trails[a].configure_layers(main_camera.get_position())
         # Add all trails to their respective layers
         for a in self.trails:
             aatl = self.trails[a].get_trail_actors_and_their_layers()
@@ -632,7 +580,21 @@ class VirgoControlCenter:
             l = self.nodes[node].get_layer()
             sp = self.nodes[n].silhouette_polydata 
             if sp != None:
-                sp.SetCamera(self.cameras[l])
+                sp.SetCamera(self.cameras[l].get_vtk_camera())
+
+        # Remove any camera frustums that are too far away. Here we assume
+        # frustums can only live in the foreground layer
+        ufc = self.get_user_facing_cameras()
+        for c in ufc:
+            this_cam_pos = ufc[c].get_position()
+            fa = ufc[c].get_frustum_assembly()
+            distance = np.linalg.norm(camera_pos - this_cam_pos)
+            #import pdb; pdb.set_trace()
+            if distance > self.foreground_far_boundary:
+                self.renderers['foreground'].RemoveActor(fa)
+            else:
+                if not self.renderers['foreground'].GetActors().IsItemPresent(fa):
+                    self.renderers['foreground'].AddActor(fa)
 
         self.configure_camera_clipping_ranges()
 
@@ -656,8 +618,8 @@ class VirgoControlCenter:
             # Have each renderer decide the clipping range of the props in their layer
             self.adjust_camera_clipping_ranges()
             # Store off the clipping range when axes aren't visible so we can use them when they are
-            for layer in self.last_clipping_ranges:
-                self.last_clipping_ranges[layer] = list(self.cameras[layer].GetClippingRange())
+            for layer in self.cameras:
+                self.cameras[layer].store_clipping_range()
 
     def adjust_camera_clipping_ranges(self, obj=None, event=None):
         """
@@ -678,16 +640,17 @@ class VirgoControlCenter:
         # See also configure_camera_clipping_ranges() 
         if self.are_any_axes_visible():
             for layer in self.cameras:
-                self.cameras[layer].SetClippingRange(self.last_clipping_ranges[layer])
+                self.cameras[layer].restore_clipping_range()
             return
 
         self.renderers['foreground'].ResetCameraClippingRange() 
+        main_camera = self.get_active_camera()
         if self.is_any_celestial_node_in_foreground():
             # TODO this bias ratio should maybe be tunable, this was picked
             # based on what "looks right" in entry.py near end of sim -Jordan feb 2025
             bias = 100
-            close, far = self.cameras['foreground'].GetClippingRange()
-            self.cameras['foreground'].SetClippingRange(close/bias, far/bias)
+            close, far = main_camera.get_clipping_range()
+            main_camera.set_clipping_range(close/bias, far/bias)
             #print(f"BIAS CLIPPING ACTIVE, was {close}, {far}", file=sys.stderr)
         self.renderers['midground'].ResetCameraClippingRange() 
         self.renderers['background'].ResetCameraClippingRange() 
@@ -704,17 +667,18 @@ class VirgoControlCenter:
 
     def get_optimal_layer(self, distance, is_celestial=False):
         """
-        If the distance we are measuring is to a celestial object, make it
-        much harder for it to enter the foreground. We don't want earth
-        entering the foreground until we're very close otherwise it obscures
-        the other objects in the scene
+        Return the optimal layer associated with the distance (from camera)
+        given.
 
-        TODO: 100.0 is kind of a magic number here, need to formalize and unit
-        test around it -Jordan Feb 2026
+        If the distance we are measuring is to a celestial object, apply the
+        self.celestial_foreground_bias to make it much harder for objects to
+        enter the foreground. Ex: we don't want earth entering the foreground
+        until we're very close otherwise it obscures the other objects in the
+        scene
         """
         fg_boundary = self.foreground_far_boundary
         if is_celestial: 
-            fg_boundary = fg_boundary / 100.0
+            fg_boundary = fg_boundary * self.celestial_foreground_bias
         if distance < fg_boundary:
             return 'foreground'
         elif distance < self.midground_far_boundary:
@@ -724,19 +688,32 @@ class VirgoControlCenter:
 
     def update_scene(self):
         """
-        Update all nodes, update the camera (if following a node), update
+        Update all nodes, update the cameras update
         the sun and it's light.
         """
         self.update_nodes()                      # move nodes
-        self.camera_follow(self.camera_follows)  # move camera
         self.position_sun_light()                # Move sun light
         self.position_sun_actor(None, None)      # Move sun sphere
+
+    def update_cameras(self):
+        """
+        Call update on all user facing cameras. This positions cameras
+        that are parented to nodes and updates other camera-specific
+        internals
+        """
+        ufc = self.get_user_facing_cameras()
+        width, height = self.render_window.GetSize()
+        for camera in ufc:
+            ufc[camera].update(window_width=width, window_height=height)
 
     def configure_hud(self):
         """
         Interface function to the self.hud object's configure() function
         """
-        self.hud.configure(mode=self.mode, camera_follows=self.camera_follows,
+        intstyle = self.interactor.GetInteractorStyle()
+        camera_style = 'trackball' if intstyle == self.trackball_style else 'first-person'
+        self.hud.configure(mode=self.mode, camera_style=camera_style,
+                           camera=self.get_active_camera(),
                            playback_speed=self.playback_speed,
                            picked_actor=self.picked_actor, picker_tolerance=self.picker_tolerance,
                            world_time=self.world_time, min_sim_time=self.min_sim_time,
@@ -763,93 +740,10 @@ class VirgoControlCenter:
         """
         matrix = actor.GetMatrix()
         pos =[ matrix.GetElement(0, 3),  matrix.GetElement(1, 3), matrix.GetElement(2, 3)]
-        self.cameras['foreground'].SetFocalPoint(pos[0], pos[1], pos[2])
+        main_camera = self.get_active_camera()
+        main_camera.set_focal_point(pos[0], pos[1], pos[2])
 
-    def automatic_camera_offset(self, node, distance_factor=20.0):
-        """
-        If no initial offset given, compute it from the bounding box of the actor
-        """
-        # Get the bounding box of the actor
-        bounds = node.actor.GetBounds()
-        # Bounds are returned as (xmin, xmax, ymin, ymax, zmin, zmax)
-        center = [(bounds[0] + bounds[1]) / 2.0,  # x-center
-                  (bounds[2] + bounds[3]) / 2.0,  # y-center
-                  (bounds[4] + bounds[5]) / 2.0]  # z-center
-        # Calculate the size of the bounding box
-        size = [bounds[1] - bounds[0],  # x-size
-                bounds[3] - bounds[2],  # y-size
-                bounds[5] - bounds[4]]  # z-size
-        # Determine an offset distance based on the bounding box size
-        # For example, place the camera at a distance of 5 times the maximum dimension
-        max_dimension = max(size)
-        offset_distance = max_dimension * distance_factor
-        self.camera_follow_offset = np.array([offset_distance, offset_distance/2.0, 0.0])
-        #print(f"DEBUG: AUTOMATIC self.camera_follow_offset is {self.camera_follow_offset}")
 
-    def camera_follow(self, node, initial_offset=None):
-        """
-        Move the camera to follow the given node
-
-        Params:
-          initial_offset (list or None): Initial Position vector offset for
-            camera following node. If not specified, one is calculated
-            automatically
-        TODO: self.camera_follows must be set before this function is called
-           which is wonky. Need to move to this function doing everything it needs
-        """
-        # TODO: I don't like how we have a member called self.camera_follows and a
-        # function of nearly the same name, mostly in that we have to assign self.camera_follows
-        # then call this function. We should be able to rename self._camera_follows and assign
-        # it's value directly in this function
-        if not self.camera_follows:
-            return
-        #import pdb; pdb.set_trace()
-        # Store off the node the camera follows
-        self.camera_follows=node
-        # Tell the interactor style which node to follow
-        intstyle = self.interactor.GetInteractorStyle()
-        intstyle.set_node(self.camera_follows)
-        # If the camera has never followed before, set the renderer as well
-        if not intstyle.get_renderers():
-            intstyle.set_renderers(self.renderers['foreground'])
-
-        # Ask the interactor for the latest camera position
-        self.camera_follow_offset = self.interactor.GetInteractorStyle().GetRelativeCameraInfo('position')
-
-        # If this is None, the interactor hasn't run yet so we need to define
-        # the camera offset for the followed node and move the camera to it
-        # TODO: this is really a "first camera follow init" thing, maybe it
-        # belongs in it's own function
-        if self.camera_follow_offset is None:
-            if initial_offset:
-                self.camera_follow_offset = np.array(initial_offset)
-            else:
-                self.automatic_camera_offset(node)
-            pos =np.array(node.get_world_position())
-            camera_pos = pos + self.camera_follow_offset
-            #print(f"DEBUG: INIT moving self.cameras['foreground'] to {camera_pos}")
-            #print(f"DEBUG: INIT setting self.cameras['foreground'] focal to {pos}")
-            self.cameras['foreground'].SetPosition(camera_pos[0], camera_pos[1], camera_pos[2])
-            self.cameras['foreground'].SetFocalPoint(pos[0], pos[1], pos[2])
-            # Store this initial offset in the VirgoInteractorStyle by calling the
-            # callback which stores the relative camera offset
-            self.interactor.GetInteractorStyle().StoreRelativeCameraInfo(None, None)
-
-        pos = np.array(node.get_world_position())
-        #print(f"DEBUG: self.camera_follow_offset is {self.camera_follow_offset}")
-        camera_pos = pos + self.camera_follow_offset
-        #print(f"DEBUG: moving self.cameras['foreground'] to {camera_pos}")
-        #print(f"DEBUG: setting self.cameras['foreground'] focal to {pos}")
-        # Set camera position
-        self.cameras['foreground'].SetPosition(camera_pos[0], camera_pos[1], camera_pos[2])
-        # Set focal point to spacecraft's center
-        self.cameras['foreground'].SetFocalPoint(pos[0], pos[1], pos[2])
-        # Ask the interactor for the stored off view_up direction from end of interaction
-        view_up = self.interactor.GetInteractorStyle().GetRelativeCameraInfo('view_up')
-        # If view_up isn't defined, default it to "positive Z is up"
-        if not view_up:
-            view_up = (0.0, 0.0, 1.0)
-        self.cameras['foreground'].SetViewUp(view_up)
 
     def pick_this_layer(self, click_pos, layer):
         """
@@ -1068,48 +962,111 @@ class VirgoControlCenter:
         "  camera follow <actor_name>\n"
         "  camera free"
         )
+        ac = self.get_active_camera()
         if action == 'help':
             return help
         if action == 'follow':
             if len(args) != 1:
                 return('too many args to \'camera follow\', give one node name')
             if args[0] in self.nodes:
-                self.camera_follows = self.nodes[args[0]]
-                self.camera_follow(self.camera_follows)
-                return(f"camera now following {args[0]}")
+                new_parent = self.nodes[args[0]]
+                #import pdb; pdb.set_trace()
+                ac.set_parent(new_parent)
+                self.set_interactor_styles_node(new_parent)
+                #ac.follow(self.nodes[args[0]])
+                return(f"camera now following {ac.get_parent_name()}")
         if action == 'free':
-            self.camera_follows = None
+            ac.set_free()
             return(f"camera now free")
 
         return help
 
-    def toggle_camera_modes(self):
+    def toggle_camera_interactors(self):
         """
-        If we're already following a node, free the camera
-        If we're already free, change the node we follow to the picked node or
-        last picked node if no node is picked. If no last node is picked
-        the camera will remain free forever.
+        Switch the active camera between trackball mode and first-person mode
+        """
+        active_cam = self.get_active_camera()
+        if active_cam == None:
+            print("ERROR: Cannot switch interactor mode, no active camera!")
+            return
+        active_cam_interactor_mode = active_cam.get_interactor_mode()
+        if active_cam_interactor_mode == 'TB':
+            self.go_first_person()
+        else:
+            self.go_trackball()
+
+    def go_trackball(self):
+        """
+        Switch the active camera to trackball mode
+        """
+        active_cam = self.get_active_camera()
+        if active_cam == None:
+            print("ERROR: Cannot go to first person interactor mode, no active camera!")
+            return
+        self.interactor.SetInteractorStyle(self.trackball_style)
+        active_cam.set_interactor_mode('TB')
+        active_cam_parent = active_cam.get_parent()
+        # Restore the camera's relationship to the parent
+
+    def go_first_person(self):
+        """
+        Switch the active camera to first person mode
+        """
+        active_cam = self.get_active_camera()
+        if active_cam == None:
+            print("ERROR: Cannot go to trackball interactor mode, no active camera!")
+            return
+        active_cam.clear_relative_focal_point()
+        self.interactor.SetInteractorStyle(self.first_person_style)
+        active_cam.set_interactor_mode('FP')
+
+    def change_active_camera_parent_from_picked_node(self):
+        """
+        Adjust the parental relationship of the active camera based on
+        what node is currently picked, if any.
+
+        If we're already parented to a node, free the camera. If we're already
+        free, change the node we're parented to to be the picked node or last
+        picked node if no node is picked. If no last node is picked the camera
+        will remain free.
 
         TODO: This function is kinda funky and is called from a keypress by the
         user, originally written before the virgo console existed.  Probably
         should consolidate this with the camera() function that can be called
-        from the virgo console. -Jordan 1/2026
+        from the virgo console so we're using the same approach everywhere.
+        -Jordan 4/2026
         """
+        active_cam = self.get_active_camera()
+        active_cam_parent = active_cam.get_parent()
         # If we're already following a node, free the camera
-        if self.camera_follows:
+
+        #import pdb; pdb.set_trace()
+        if active_cam_parent:
             if self.picked_actor:
-                self.camera_follow( self.nodes[self.picked_actor.name] )
+                new_parent = self.nodes[self.picked_actor.name]
+                active_cam.set_parent(new_parent)
+                self.set_interactor_styles_node(new_parent)
             else:
-                self.camera_follows = None
+                active_cam.set_free()
         # Otherwise change the node we follow to the picked node or last
         # picked node if no node is picked
         else:
             if self.picked_actor:
-                self.camera_follows = self.picked_actor
-                self.camera_follow( self.nodes[self.picked_actor.name] )
+                new_parent = self.nodes[self.picked_actor.name]
+                active_cam.set_parent(new_parent)
+                self.set_interactor_styles_node(new_parent)
             elif self.last_picked_actor:
-                self.camera_follows = self.last_picked_actor
-                self.camera_follow( self.nodes[self.last_picked_actor.name] )
+                new_parent = self.nodes[self.last_picked_actor.name]
+                active_cam.set_parent(new_parent)
+                self.set_interactor_styles_node(new_parent)
+            
+    def set_interactor_styles_node(self, node):
+        """
+        Set the node the active camera is parented to for both interactor
+        styles
+        """
+        self.first_person_style.set_node(node)
+        self.trackball_style.set_node(node)
 
     @virgo_console
     def fontsize(self, direction='up'):
@@ -1196,6 +1153,7 @@ class VirgoControlCenter:
             self.help = True if self.help == False else False
         if key == "d":
             self.toggle_debug()
+            self.report_cameras()
         if key == "BackSpace":
             # Toggle skybox visibility
             self.toggle_skybox()
@@ -1205,10 +1163,7 @@ class VirgoControlCenter:
                 print(self.text_actors['picked'].GetInput())
         if key == "V":
             # Verbosely print state of all non-text actors
-            for n in self.nodes:
-                # Call report() on root nodes only since they recurse
-                if self.nodes[n].parent == None:
-                    self.nodes[n].report()
+            self.report_nodes()
         if key == "j":
             self.decrease_near_clipping_plane_tolerance()
         if key == "k":
@@ -1218,18 +1173,79 @@ class VirgoControlCenter:
         if key == "K":
             self.increase_picker_tolerance()
         if key == "c":
-            self.toggle_camera_modes()
+            self.change_active_camera_parent_from_picked_node()
             self.camera_report()
+        if key == "C":
+            self.toggle_camera_interactors()
         if key == "space":
             self.handle_pause_button()
         if key == "Left" or key =='comma':
             self.step('back')
         if key == "Right" or key == 'period':
             self.step('forward')
+        if key == "Up":
+            self.switch_cameras('next')
+        if key == "Down":
+            self.switch_cameras('previous')
         self.update()
 
+    def report_nodes(self):
+        for n in self.nodes:
+            # Call report() on root nodes only since they recurse
+            if self.nodes[n].parent == None:
+                    self.nodes[n].report()
+
+    def switch_cameras(self, direction='next'):
+        #import pdb; pdb.set_trace()
+        active_cam = self.get_active_camera()
+        if active_cam == None:
+            print("Unable to determine active camera, cannot switch!")
+            return
+        # Get a list of user facing cameras sorted by their priority attribute
+        user_facing_cams = self.get_user_facing_cameras()
+        cams_sorted_by_priority = sorted(
+            list(user_facing_cams.values()), key=lambda x: x.priority)
+        # Get the index of the active camera in this list
+        active_cam_idx = cams_sorted_by_priority.index(active_cam)
+        new_idx = 0
+        if direction == 'next':
+            new_idx = active_cam_idx + 1
+        elif direction == 'previous':
+            new_idx = active_cam_idx - 1
+        else:
+            msg = f"Unsupported direction {direction} in switch_cameras"
+            raise RuntimeError(msg)
+
+        # Handle idx rollover
+        if new_idx > len(user_facing_cams) - 1 :
+            new_idx = 0
+        # Set the active camera to the camera associated with new_idx
+        new_cam_name = cams_sorted_by_priority[new_idx].get_name()
+        #import pdb; pdb.set_trace()
+        self.set_active_camera(cam_name=new_cam_name)
+        self.update_cameras()
+        self.sync_cameras(None, None)
+
+    def get_user_facing_cameras(self):
+        """
+        Get a subset of self.cameras dict, ignoring cameras outside of user
+        space.
+        """
+        user_facing_cams = {}
+        for cam in self.cameras:
+            if self.cameras[cam].get_name() in VirgoRendering.non_user_facing_cameras:
+                continue
+            user_facing_cams[cam] = self.cameras[cam]
+        return user_facing_cams
+
+    def report_cameras(self):
+        for cam in self.cameras:
+            self.cameras[cam].report(indent='  ')
+
     def toggle_debug(self):
-        # Toggle HUD debug info
+        """
+        Toggle debug information
+        """
         value = True if self.hud.get_debug() == False else False
         self.hud.set_debug(value)
         # Color node trail segments
@@ -1237,6 +1253,9 @@ class VirgoControlCenter:
             self.nodes[node].toggle_trail_segments_debug_color()
 
     def toggle_skybox(self):
+        """
+        Toggle skybox visibility
+        """
         self.skybox.SetVisibility(False) if self.skybox.GetVisibility() else self.skybox.SetVisibility(True)
 
     @virgo_console
@@ -1425,82 +1444,226 @@ class VirgoControlCenter:
                     continue
                 self.nodes[n].data_source.set_current_time(self.world_time, strategy='closest')
 
-    # Put the camera in a nice position to see docking
-    def init_camera(self):
+    def initialize_cameras(self):
         """
-        Set the initial camera position
-
-        TODO: The hardcoded values should probably be either removed entirely
-        and replaced with whatever 'r' keypress is doing via the default
-        behavior of vtkInteractorStyleTrackballCamera, or a better approach
-        which places the camera automatically based on what's in the scene, or
-        based on camera init information read from the YAML file
-
-        TODO: The camera follow capability is locked to a single actor here, we
-        should consider the ability to change which actor is followed during
-        runtime. We could consider using self.picked_actor to drive the camera
-        follow mechanism.
-
-        TODO: shouldn't we sync_cameras() here?
+        Initialize all user-defined cameras. Note that self.cameras
+        is already populated with non-user-facing cameras
         """
-        # Default camera if the scene has given us no information on it
-        self.cameras['foreground'].SetPosition(-10.0, 0.0, 0.0)
-        self.cameras['foreground'].SetFocalPoint(0, 0, 0)
-        self.cameras['foreground'].SetViewUp(0.0, 0.0, 1.0)  # Z is up
+        cameras = {}
+        if 'cameras' in self.scene and self.scene['cameras'] != None:
+          for c in self.scene['cameras']:
+            cameras[c] = {}
+            cameras[c] = self.create_camera(name=c, csd=self.scene['cameras'][c])
+        # If no default camera specified by the user, create it
+        if not cameras or 'default' not in cameras:
+            cameras['default'] = {}
+            cameras['default'] = self.create_camera(name='default', csd={})
+
+        # Add user cameras to the full camera dictionary
+        self.cameras.update(cameras)
 
         # Set clipping ranges for very far away cameras, the other cameras
         # 'foreground' and 'midground' clipping ranges are dynamic and
         # change with the movement of the camera
         # TODO do we want a user to be able to change this in the yaml file?
-        self.cameras['sun'].SetClippingRange(1e10, 1e17)
-        self.cameras['background'].SetClippingRange(1e10, 1e17)
+        self.cameras['sun'].set_clipping_range(1e10, 1e17)
+        self.cameras['background'].set_clipping_range(1e10, 1e17)
         # NOTE this skybox clipping range appears optimal and I'm not sure
         # why, other ranges result in the skybox becoming erratic in scenes
         # with inertial sized bodies and distances
-        self.cameras['skybox'].SetClippingRange(1e6, 1e10)
+        self.cameras['skybox'].set_clipping_range(1e6, 1e10)
 
-        # If the camera is setup to follow a node/actor, save that node in
-        # self.camera_follows and pass that node into the Interactor so
-        # it can track camera information relative to an actor
-        if 'camera' in self.scene and self.scene['camera'] != None:
-          initial_camera_pos = None
-          if 'position' in self.scene['camera'] and self.scene['camera']['position'] != None:
-            initial_camera_pos = self.scene['camera']['position']
-            self.cameras['foreground'].SetPosition(initial_camera_pos )
-          if 'focal_point' in self.scene['camera'] and self.scene['camera']['focal_point'] != None:
-            self.cameras['foreground'].SetFocalPoint(self.scene['camera']['focal_point'])
-          if 'view_up' in self.scene['camera'] and self.scene['camera']['view_up'] != None:
-            self.cameras['foreground'].SetViewUp(self.scene['camera']['view_up'])
-          if 'follow' in self.scene['camera'] and self.scene['camera']['follow'] != None:
-            for node in self.nodes:
-              if self.nodes[node].name == self.scene['camera']['follow']:
-                self.camera_follows = self.nodes[node]
-                self.camera_follow(self.camera_follows, initial_offset=initial_camera_pos)
-                # Follow node found, stop searching for it
-                break
-            if self.camera_follows == None:
-              msg = (f"ERROR: Camera cannot follow {self.scene['camera']['follow']}, actor/node not found!")
-              raise RuntimeError (msg)
-          if ('foreground_far_boundary' in self.scene['camera'] and 
-              self.scene['camera']['foreground_far_boundary'] != None):
-            self.foreground_far_boundary = self.scene['camera']['foreground_far_boundary']
-          if ('midground_far_boundary' in self.scene['camera'] and 
-              self.scene['camera']['midground_far_boundary'] != None):
-            self.midground_far_boundary = self.scene['camera']['midground_far_boundary']
+        # Set the active camera to the default cam which is guaranteed to exist
+        self.set_active_camera(cam_name='default')
 
-          # NearClippingPlaneTolerance IS CRITICAL, SMALLER NUMBERS (0.00001) MAKE
-          # THE BACKGROUND SKYBOX STARS WIGGLE BUT LARGER NUMBERS (0.0001) MAKE
-          # SMALLER ACTORS NOT VISIBLE DUE TO CLIPPING.
-          if ('near_clipping_plane_tolerance' in self.scene['camera'] and 
-              self.scene['camera']['near_clipping_plane_tolerance'] != None):
-              self.near_clipping_plane_tolerance = float(self.scene['camera']['near_clipping_plane_tolerance'])
-        #TODO make this cleaner if we are keeping the tolerance the same for all layers
-        self.renderers['foreground'].SetNearClippingPlaneTolerance(self.near_clipping_plane_tolerance)
-        self.renderers['midground'].SetNearClippingPlaneTolerance(self.near_clipping_plane_tolerance)
-        self.renderers['background'].SetNearClippingPlaneTolerance(self.near_clipping_plane_tolerance)
+        # If the camera is parented, use the pos: value as the relative offset
+        default_cam = self.cameras['default']
+        if default_cam.has_parent():
+            default_cam.set_relative_offset(self.scene['cameras']['default']['pos'])
+        # Foreground position is automatic from renderer, so sync it with
+        # the default camera, otherwise foreground camera ends up at [0,0,1]
+        # TODO: it'd be nice if this was more intuitive and this explicit
+        # call not needed here, but this is downstream of how the non
+        # user facing cameras are initialized from defaults coming from
+        # GetActiveCamera and that foreground is the only camera layer not
+        # sync'd to the active camera
+        self.cameras['foreground'].set_parent(default_cam.get_parent())
+        self.cameras['foreground'].sync_with(default_cam)
+        width, height = self.render_window.GetSize()
+        self.cameras['foreground'].update(width, height)
 
-        for r in self.renderers:
-            self.last_clipping_ranges[r] = self.cameras[r].GetClippingRange()
+        # Pass the cameras dict into the interactors
+        self.trackball_style.set_cameras(self.cameras)
+        self.first_person_style.set_cameras(self.cameras)
+
+        self.sync_cameras(None, None)
+        #print(f"DEBUG: ACTIVE VTK CAMERA FOR FOREGROUND IS INITIALIZED TO: {hex(id(self.renderers['foreground'].GetActiveCamera()))}")
+        #for cam in self.cameras:
+        #  print(f"DEBUG: all vtk cams: {cam}: {hex(id(self.cameras[cam].camera))}")
+
+
+    def set_active_camera(self, cam_name):
+        """
+        1. Assign the vtkCamera from cam_name to the foreground rendering layer
+        2. Set the active flag in the self.cameras instance to True
+        3. Deactivate any cameras that were active, and switch interactor
+           modes based on the new camera's attribute
+        4. Manage Observer callbacks to sync_cameras so it's only called
+           for the active camera
+        """
+        # Deactivate any other cameras that are currently active and remove
+        # the camera sync callback from that vtk camera
+        # TODO: This works while a single camera can be active at a time
+        # but would break if we ever supported multiple cameras rendered
+        # at the same time
+        active_cam = self.get_active_camera()
+        # Already using this camera, do nothing
+        if active_cam and active_cam.name == cam_name:
+            return
+        #import pdb; pdb.set_trace()
+        if active_cam != None:
+            active_cam.deactivate()
+            old_vtk_cam = active_cam.get_vtk_camera()
+            old_vtk_cam.RemoveObserver(self.cam_sync_observer_tag)
+
+        new_vtk_cam = self.cameras[cam_name].get_vtk_camera()
+        # Assign the new camera to the foreground rendering layer
+        self.renderers['foreground'].SetActiveCamera(new_vtk_cam)
+        # Register the camera sync callback for the new camera
+        self.cam_sync_observer_tag = new_vtk_cam.AddObserver("ModifiedEvent", self.sync_cameras)
+        # Mark this camera as currently active
+        self.cameras[cam_name].activate()
+
+        #print(f"DEBUG: Active camera is now {cam_name}")
+
+        # Tell the interactors
+        new_cam_parent = self.cameras[cam_name].get_parent()
+        if new_cam_parent:
+            self.set_interactor_styles_node(new_cam_parent)
+
+        if self.cameras[cam_name].get_interactor_mode() == 'FP':
+            self.go_first_person()
+        elif self.cameras[cam_name].get_interactor_mode() == 'TB':
+            self.go_trackball()
+
+    def get_active_vtk_camera(self):
+        """
+        Get the vtkCamera instance for the active camera. Note this
+        assumes self.renderers['foreground'] is always the active camera
+        which is currently true.
+        """
+        return(self.renderers['foreground'].GetActiveCamera())
+
+    def get_active_camera(self):
+        """
+        Return the VirgoCamera instance that is currently active
+
+        TODO: make this safer, right now it only finds the first
+        true instance but we need to make sure multiples aren't True
+        """
+        for cam in self.cameras:
+            if self.cameras[cam].is_active():
+                return self.cameras[cam]
+        return None
+
+    def create_camera(self, name, csd, _class=None):
+        """
+        Create and return a VirgoCamera with the info provided
+
+        Params:
+          csd: This camera's scene dict
+          _class: Used for camera extension (currently untested)
+        """
+        # Make sure the given class derives from VirgoCamera
+        if _class == None:
+          _class = VirgoCamera
+        elif not issubclass(_class, VirgoCamera):
+          msg = (f"ERROR: Improper extension detected: {_class} must derive from" 
+                 f"VirgoCamera")
+          raise RuntimeError (msg)
+
+        # Default values which can be overridden by info in csd
+        mode='TB'
+        position=[0.0, 0.0, 0.0]
+        focal_point=[1.0, 0.0, 0.0]
+        view_up=[0.0, 0.0, 1.0]
+        view_angle=30
+        static=False
+        frustum_when='toggled'
+        frustum_far_plane=1.0
+        frustum_color=[1.0, 0.9, 0.1]
+        priority=0
+        parent=None
+         
+        if 'mode' in csd and csd['mode'] != None:
+          mode = csd['mode']
+        if 'pos' in csd and csd['pos'] != None:
+          position = csd['pos']
+        if 'focal_point' in csd and csd['focal_point'] != None:
+          focal_point = csd['focal_point']
+        if 'view_up' in csd and csd['view_up'] != None:
+          view_up = csd['view_up']
+        if 'view_angle' in csd and csd['view_angle'] != None:
+          view_angle = csd['view_angle']
+        if 'static' in csd and csd['static'] != None:
+          static = csd['static']
+        if 'frustum_when' in csd and csd['frustum_when'] != None:
+          frustum_when = csd['frustum_when']
+        if 'frustum_far_plane' in csd and csd['frustum_far_plane'] != None:
+          frustum_far_plane = csd['frustum_far_plane']
+        if 'frustum_color' in csd and csd['frustum_color'] != None:
+          frustum_color = csd['frustum_color']
+        if 'priority' in csd and csd['priority'] != None:
+          priority = csd['priority']
+        if 'parent' in csd and csd['parent'] != None:
+          parent = self.nodes[csd['parent']]
+
+        camera = VirgoCamera(name=name,
+                 mode=mode,
+                 position=position,
+                 focal_point=focal_point,
+                 view_up=view_up,
+                 view_angle=view_angle,
+                 static=static,
+                 frustum_when=frustum_when,
+                 frustum_far_plane=frustum_far_plane,
+                 frustum_color=frustum_color,
+                 priority=priority,
+                 parent=parent)
+        return(camera)
+
+    def init_renderer_options(self):
+      """
+      Initialize self.renderers and other internal members with user-provided
+      settings
+      """
+      if 'renderer' in self.scene and self.scene['renderer'] != None:
+        if ('foreground_far_boundary' in self.scene['renderer'] and 
+            self.scene['renderer']['foreground_far_boundary'] != None):
+          self.foreground_far_boundary = self.scene['renderer']['foreground_far_boundary']
+        if ('midground_far_boundary' in self.scene['renderer'] and 
+            self.scene['renderer']['midground_far_boundary'] != None):
+          self.midground_far_boundary = self.scene['renderer']['midground_far_boundary']
+        if ('celestial_foreground_bias' in self.scene['renderer'] and 
+            self.scene['renderer']['celestial_foreground_bias'] != None):
+          self.celestial_foreground_bias = self.scene['renderer']['celestial_foreground_bias']
+  
+        # NearClippingPlaneTolerance IS CRITICAL, SMALLER NUMBERS (0.00001) MAKE
+        # THE BACKGROUND SKYBOX STARS WIGGLE BUT LARGER NUMBERS (0.0001) MAKE
+        # SMALLER ACTORS NOT VISIBLE DUE TO CLIPPING.
+        if ('near_clipping_plane_tolerance' in self.scene['renderer'] and 
+            self.scene['renderer']['near_clipping_plane_tolerance'] != None):
+            self.near_clipping_plane_tolerance = float(self.scene['renderer']['near_clipping_plane_tolerance'])
+
+      if self.celestial_foreground_bias == 0.0: 
+        print(f"WARNING: celestial_foreground_bias == 0.0, which means no celestial sized "
+              f"objects can enter the foreground layer. This may result in unusual clipping "
+              f"if the camera gets close to these objects.")
+
+      #TODO make this cleaner if we are keeping the tolerance the same for all layers
+      self.renderers['foreground'].SetNearClippingPlaneTolerance(self.near_clipping_plane_tolerance)
+      self.renderers['midground'].SetNearClippingPlaneTolerance(self.near_clipping_plane_tolerance)
+      self.renderers['background'].SetNearClippingPlaneTolerance(self.near_clipping_plane_tolerance)
 
     def increase_near_clipping_plane_tolerance(self, multiplier=2.0):
         self.near_clipping_plane_tolerance *= multiplier
@@ -1535,28 +1698,28 @@ class VirgoControlCenter:
         """
         Debug function for seeing where the camera is
         """
-        mode = f"follow: {self.camera_follows.name}" if self.camera_follows else 'free'
-        print(f"Camera report:")
-        print(f"  mode: {mode}")
         for c in self.cameras:
           # Other renderer cameras all sync to foreground so don't show them
           # unless verbosity is high
-          if self.verbosity < 3 and c != 'foreground':
+          if self.verbosity < 3 and not self.cameras[c].is_active():
               continue
-          print(f"  {c} camera:")
-          print(f"    position: {self.cameras[c].GetPosition()}")
-          print(f"    focal point: {self.cameras[c].GetFocalPoint()}")
-          print(f"    view up: {self.cameras[c].GetViewUp()}")
-          print(f"    clipping range: {self.cameras[c].GetClippingRange()}")
-          print("Renderer info:")
+          print(f"Camera {c}:")
+          self.cameras[c].report(indent=' ')
+        print("Renderer info:")
         for r in self.renderers:
           print(f"  {r} NearClippingPlaneTolerance: {self.renderers[r].GetNearClippingPlaneTolerance()} ")
+
+    def set_interactors(self, trackball_style, first_person_style):
+        self.trackball_style = trackball_style
+        self.first_person_style = first_person_style
 
     def register_callbacks(self):
         """
         Register all callbacks with the interactor
         """
-        self.cameras['foreground'].AddObserver("ModifiedEvent", self.sync_cameras)
+        active_cam = self.get_active_camera()
+        vtk_cam = active_cam.get_vtk_camera()
+        self.cam_sync_observer_tag = vtk_cam.AddObserver("ModifiedEvent", self.sync_cameras)
         self.interactor.AddObserver("RightButtonPressEvent", self.on_right_click)
         self.interactor.AddObserver("TimerEvent", self.on_timer)
         self.interactor.AddObserver("KeyPressEvent", self.on_key_press)
@@ -1581,49 +1744,32 @@ class VirgoControlCenter:
         """
         if self.are_any_axes_visible():
             for layer in self.cameras:
-                self.cameras[layer].SetClippingRange(self.last_clipping_ranges[layer])
+                self.cameras[layer].revert_clipping_range()
 
     def sync_cameras(self, obj, event):
         """
-        Sync the position of all cameras to that of the foreground camera
+        Sync the params of all cameras to that of the foreground camera
         This is required so that we can use multiple renderers for different
         sized actors in the scene. The cameras have to be in the same place
         for each renderer layer in order to for it to look correct as the
         scenes are composited together. Note that clipping ranges are not
         sync'd on purpose.
         """
-        #print(f"DEBUG: syncing cameras")
-        main_camera = self.cameras['foreground'] # Sync all to this one
-        for cam in self.cameras:
-            if cam == 'foreground':
-                continue
-            self.cameras[cam].SetViewUp(main_camera.GetViewUp())
-            self.cameras[cam].SetFocalPoint(main_camera.GetFocalPoint())
-            self.cameras[cam].SetPosition(main_camera.GetPosition())
-            self.cameras[cam].SetViewAngle(main_camera.GetViewAngle())
+        active_vtk_cam = self.renderers['foreground'].GetActiveCamera()
+        #print(f"====DEBUG ABOUT TO SYNC EVERYTHING TO  ACTIVE CAM {hex(id(active_vtk_cam))}====")
+    
+        for cam in VirgoRendering.cameras_to_sync:
+            self.cameras[cam].sync_with_vtk_camera(active_vtk_cam)
+            #self.cameras[cam].report()
+        #print(f"====DONE WITH SYNC EVERYTHING TO  ACTIVE CAM {hex(id(active_vtk_cam))}=========")
+        #import pdb; pdb.set_trace()
 
     def position_sun_actor(self, obj, event):
         """
-        Position the sun relative to camera each frame.
-        This fakes out the sun being very far away when it's really
-        just positioned relative to the camera to make it look that way
+        Position the sun based on self.sun_direction
 
-        TODO: This entire function isn't used right now as there are many issues
-        with this approach of putting a sun sphere near the camera each render
-        event frame. The biggest problem is that having a sphere near the camera
-        means when we zoom out the single precision depth buffer problems are
-        more consistently seen. This could maybe be overcome by removing
-        self.sun_actor when zoomed way out, but then we can't see where the sun
-        is. Another issue is that dollying out with scroll wheel has the sun
-        flicker in its update, breaking realism. Furthermore the farther out
-        you go the more erratic the movement of the sun is. On top of all of that
-        we still render the sun when it should be occulded by large objects like
-        the earth because it's actually close to the camera. There's a standalone
-        example in my pyvista testing repoa (sun_billboard2.py) that provides an
-        example on how to turn the sun visibility off if's occluded, which could
-        help with this particular problem. In order to fulfill a sun in the scene
-        correctly I think we need to dive deep into renderer layers and shaders
-        which is too much to tackle right now for this one feature - Jordan 10/2025
+        TODO: this is a naiive approach as self.sun_distance is currently
+        hardcoded to a value that's true while the camera is near earth.
         """
 
         if not self.sun_actor:
@@ -1632,16 +1778,13 @@ class VirgoControlCenter:
         cam = self.renderers['foreground'].GetActiveCamera()
         cam_pos = cam.GetPosition()
     
-        # Position the billboard along the sun direction, at fixed distance
         sun_pos = [
             cam_pos[0] + self.sun_direction[0] * self.sun_distance,
             cam_pos[1] + self.sun_direction[1] * self.sun_distance,
             cam_pos[2] + self.sun_direction[2] * self.sun_distance
         ]
-        #import pdb; pdb.set_trace()
         #print(f"DEBUG: setting sun actor position to {sun_pos}")
         self.sun_actor.SetPosition(sun_pos)
-        self.sun_actor.SetOrientation(cam.GetOrientation())
 
     def position_sun_light(self):
         if self.sun_driven_by:
@@ -1781,6 +1924,8 @@ class VirgoControlCenter:
         self.sun_actor.GetProperty().SetLighting(False)  # always bright (emissive)
         self.sun_actor.SetPickable(False)
         self.sun_actor.SetScale(sun_scale, sun_scale, sun_scale)
+        # TODO: this assumes we're near earth, need a more flexible solution
+        # for missions further away
         self.sun_distance = 1.4959e11
         # If the user didn't specify a sun, hide the sphere
         if self.scene['sun'] == None:
@@ -1796,7 +1941,7 @@ class VirgoScene:
     self.nodes (the main scene graph) and other internal members
     """
     controller_class: Type[VirgoControlCenter] = VirgoControlCenter
-    interactor_class: Type[vtkInteractorStyle] = VirgoInteractorStyle
+    interactor_class: Type[vtkInteractorStyle] = VirgoTrackballInteractorStyle
 
     def __init__(self, scene, verbosity=1, headless=False, stop_time=None,
                  images_dir="/tmp/", video_filename="/tmp/virgo.mp4",
@@ -1810,7 +1955,7 @@ class VirgoScene:
         # The controller_class allows override of the default VirgoControlCenter
         controller_class = controller_class or self.__class__.controller_class
         controller_kwargs = controller_kwargs or {}
-        # The interactor_class allows override of the default VirgoInteractorStyle
+        # The interactor_class allows override of the default VirgoTrackballInteractorStyle
         interactor_class = interactor_class or self.__class__.interactor_class
         interactor_kwargs = interactor_kwargs or {}
 
@@ -1854,11 +1999,16 @@ class VirgoScene:
         self.render_window.SetNumberOfLayers(len(self.renderers.keys()))
         self.interactor = vtkRenderWindowInteractor()
     
-        self.interactor_style = interactor_class(renderers=self.renderers,
+        self.trackball_style = interactor_class(renderers=self.renderers,
+                                                 **interactor_kwargs)
+        # TODO should this also be override-able?
+        self.first_person_interactor_style = VirgoInteractorStyleFirstPerson(renderers=self.renderers,
                                                  **interactor_kwargs)
         self.controller = controller_class(self.renderers, self.render_window,
                                              self.interactor, self.scene,
                                              **controller_kwargs)
+
+
         self.initialized = False
 
     @staticmethod
@@ -1907,7 +2057,7 @@ class VirgoScene:
         self.render_window.SetWindowName(self.name)
 
         # Set custom interactor style
-        self.interactor.SetInteractorStyle(self.interactor_style)
+        self.interactor.SetInteractorStyle(self.trackball_style)
         
         if self.headless:
             print("Running in headless (non-interactive) mode.")
@@ -1918,10 +2068,12 @@ class VirgoScene:
             self.interactor.Initialize()
     
         # Create controller
+        self.controller.set_interactors(trackball_style=self.trackball_style,
+                                        first_person_style=self.first_person_interactor_style)
         self.controller.set_verbosity(self.verbosity)
 
-        self.controller.register_callbacks()
         self.controller.initialize()
+        self.controller.register_callbacks()
         self.controller.initialize_hud()
         self.initialized = True
 
@@ -2112,7 +2264,6 @@ class VirgoScene:
             color = [1.0, 1.0, 1.0]
             thickness = 2
             opacity = 1.0
-            layer = 'foreground'
             if 'color' in actor_scene_dict['trail']:
               color=actor_scene_dict['trail']['color']
             if 'thickness' in actor_scene_dict['trail']:

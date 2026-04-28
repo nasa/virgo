@@ -39,7 +39,7 @@ class VirgoSceneInitTestCase(unittest.TestCase):
 
     def post_init_nominal_assertions(self, inst: VirgoScene):
         self.assertIs(inst.controller_class, VirgoControlCenter)
-        self.assertIs(inst.interactor_class, VirgoInteractorStyle)
+        self.assertIs(inst.interactor_class, VirgoTrackballInteractorStyle)
         self.assertNotEqual(inst.scene, {})
         self.assertIs(inst.verbosity, 1)
         self.assertIs(inst.splash, True)
@@ -59,7 +59,6 @@ class VirgoSceneInitTestCase(unittest.TestCase):
         self.assertEqual(inst.window_width, 800)
         self.assertIsNotNone(inst.render_window)
         self.assertNotEqual(inst.renderers, {})
-        self.assertIsInstance(inst.interactor_style, inst.interactor_class)
         self.assertIsInstance(inst.controller, inst.controller_class)
 
     def test_init_nominal(self):

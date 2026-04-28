@@ -18,14 +18,6 @@ from vtkmodules.vtkCommonTransforms import (
 from vtkmodules.vtkRenderingAnnotation import (
   vtkAxesActor,
 )
-from vtkmodules.vtkCommonCore import (
-  vtkPoints,
-)
-from vtkmodules.vtkCommonDataModel import (
-  vtkCellArray,
-  vtkPolyData,
-  vtkPolyLine,
-)
 from vtkmodules.vtkFiltersHybrid import (
   vtkPolyDataSilhouette,
 )
@@ -465,7 +457,8 @@ class VirgoSceneNode():
         Args:
           pos: [X,Y,Z] position vector describing where to move this node relative to
                it's parent (or world coordinates if this node has no parent)
-          ypr: [Yaw,Pitch,Roll] ordered intrinsic Euler rotation to apply to this node
+          ypr: [Yaw,Pitch,Roll] ordered Euler rotation to apply to this node
+               about it's parent's frame axes. Applied after pos: is applied.
           dcm: 3x3 Direction Cosine Matrix representing the rotation to be applied
                to this node. This can be a list of lists but will be converted to
                a numpy matrix in this function if it isn't already. Note that ypr

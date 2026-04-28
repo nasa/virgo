@@ -256,15 +256,23 @@ It's important to note that because VIRGO doesn't necessarily render every time 
 
 Additionally, trails are automatically created as segmented actors in the scene, which means if a trail gets long enough another segment is created until the segment buffer is full. This is still under development but allows for more realistic trails in very large scale scenes as these trail actors interact with the [rendering layers](#rendering-layers).
 
-## Camera
+## Cameras
 
-Currently VIRGO only supports a single camera view. The camera can be configured to follow `actors:` defined in the VIRGO scene (see the [`camera:` section of the YAML reference](#configure-scenes-with-a-yaml-file) below) and this is recommended for spacecraft simulations since stationary cameras provide little value when objects are moving at orbital velocities.
+Currently VIRGO has support for a number of camera modes and the ability to define multiple cameras and switch between them. Cameras can be configured to follow `actors:`, `frames:`, or `vectors:` defined in the VIRGO scene using the `parent:` relationship. This parent relationship is recommended for spacecraft simulations since stationary cameras provide little value when objects are moving at orbital velocities. 
 
-While using the interactive window the actor which is followed can be re-configured by right-click picking the actor and pressing the `c` key. To unfollow an actor, right-click pick empty space and press `c`.
+Cameras can be configured to operate in two modes: Trackball `mode: TB` or First-Person (`mode: FP`). In trackball mode, motion from click-dragging the mouse makes the camera orbit around a focal point. If `parent:` given, the focal point is configured to be the parent node. Otherwise use `focal_point:` to define where the camera points. In first-person mode, motion from click-dragging the mouse makes the camera rotate about it's own position in space, meaning the camera will not move allowing you to "look around" from a certain perspective. This mode combined with `static: 1` can simulate the real view from a fixed camera in your simulated scene.
+
+See the [`camera:` section of the YAML reference](#configure-scenes-with-a-yaml-file) below for details on all camera parameters.
+
+While using the interactive window the actor which a non-static camera is following (it's `parent:`) can be re-configured at any time by right-click picking the actor and pressing the `c` key. To unfollow an actor, right-click pick empty space and press `c`. To switch between first-person and trackball modes, press `C`.
 
 ## Lighting
 
 While using the interactive window the lighting mode can be seen in the top-right part of the HUD. Lighting modes can be changed by pressing the `l` key - this will cycle between the supported lighting modes.
+
+## Labels
+
+Virgo labels allow the user to display arbitrary text in the 3D scene and can be toggled on/off through label-specific settings and the `L` keyboard shortcut. This can include static text or any simulation data defined in your scene's [data_source: section](#configure-scenes-with-a-yaml-file). See the `labels:` section in `examples/*/scene.yml` and the verbose [`labels:` section of the YAML reference](#configure-scenes-with-a-yaml-file) for details on all label parameters.
 
 ## Console
 
@@ -408,7 +416,7 @@ actors:     # The dictionary which holds all actors in the scene. The
                  #   [red, green, blue] values of the color of this actor's
                  #   trail. Defaults to [1.0, 1.0, 1.0] white.
       thickness: # Optional integer thickness of line. Default: 2.
-      opacity:   # Optional float represseting opacity of trail line.
+      opacity:   # Optional float representing opacity of trail line.
                  #   Defaults to 1.0
     parent:      # Optional name of other actor, frame, or vector that this
                  #   actor's movement is defined relative to. If no parent: is
@@ -517,7 +525,7 @@ vectors:    # The dictionary which holds all vectors in the scene. A vector is
             #   are similar to that of the actors: section above with a few
             #   additions, limitations, and exceptions noted below.
             #   The mesh: and trail: fields are not supported for vectors
-            # Parameters specific to vectors (related to style of the vector arrow):
+            # Params specific to vectors (related to style of the vector arrow):
     tip_length:   # Optional percentage of total vector length occupied by tip
     tip_radius:   # Optional radius of cone base relative to total vector length
     shaft_radius: # Optional radius of cylinder forming vector shaft relative 
@@ -566,24 +574,63 @@ sun:          # Optional dictionary which holds information about the sun
               #   a vector: that is configured to point at the sun via it's
               #   own driven_by: sub-dict
 
-camera:       # Optional dictionary which holds information about the camera
-  position:   # Optional list of 3 floats describing the initial location of
-              #   the camera. If follow is given this is specified relative
-              #   to the followed node, otherwise relative to world coords
-  focal_point: # Optional list of 3 floats describing the initial point in
-               #   space the camera should look at. Only valid when follow not
-               #   given as followed nodes are the focal point automatically
-  view_up:    # Optional list of 3 floats describing the direction for the
-              #   camera's +Z axis. This defines the camera's up direction
-  follow:     # Optional name of actor the camera should follow when the scene
-              #   starts. If follow: given, it's value must be the key of a
-              #   actor, vector, or frame defined in the scene
+cameras:      # Optional dictionary which defines the camera or cameras
+              # in the scene. Cameras are independent and persistent
+              # viewpoints in the scene which can be switched to by the
+              # user at any time.
+  default:    # The default camera is created for you if not specified and
+              # this is the camera the scene will start with. The following
+              # parameters are valid for all uniquely named cameras the user
+              # may optionally define:
+    mode:       # Interactor mode for this camera, should be either 'TB' for
+                # trackball or 'FP' for first-person. This determines how
+                # mouse interaction with the scene affects the view of the
+                # camera. Use 'TB' when gods-eye view is desired and 'FP'
+                # when a view from the camera is desired. Defaults to 'TB'
+    static:     # Boolen flag for whether this camera can move. Use 1 if you
+                # want this camera to be fixed, 0 if the camera can be moved
+                # by the user with the mouse. Defaults to 0
+    pos:        # Optional list of 3 floats describing the initial location of
+                #   the camera. If parent is given this is specified relative
+                #   to the parent node, otherwise relative to world coords
+                #   Defaults to [0, 0, 0]
+    focal_point: # Optional list of 3 floats describing the initial point in
+                 #   space the camera should look at. Ignored if parent is
+                 #   given as the focal_point is the parent's origin in this
+                 #   case
+    view_up:    # Optional list of 3 floats describing the direction for the
+                #   camera's +Z axis. This defines the camera's up direction
+    view_angle: # Optional float describing the view angle (angular height of
+                #   the camera view) in degrees.  Defaults to 30 degrees.
+    parent:     # Optional name of actor/node the camera should follow when 
+                #   the scene starts. If parent: given, it's value must be the
+                #   key of an actor, vector, or frame defined in the scene
+renderer:     # Optional dictionary which defines renderer parameters
   near_clipping_plane_tolerance: # Optional float describing the VTK foreground
-                                 # camera's  Near Clipping Plane Tolerance.
-                                 # This trades small actor visiblity with risk
-                                 # of Z-fighting for far away actors. Defaults
-                                 # to 0.00005 and can be adjusted with j/k in
-                                 # the interactive window
+                               # camera's  Near Clipping Plane Tolerance.
+                               # This trades small actor visiblity with risk
+                               # of Z-fighting at the clipping bounds. Defaults
+                               # to 0.00005 and can be adjusted with j/k in
+                               # the interactive window
+  foreground_far_boundary: # Optional float describing the distance away from
+                           #   the camera a node must be before it's moved
+                           #   from the foreground to the midground layer and
+                           #   vice-versa. Reduce this value to combat near
+                           #   clipping plane distance issues. Default: 1e5
+  midground_far_boundary:  # Optional float describing the distance away from
+                           #   the camera a node must be before it's moved
+                           #   from the midground to the background layer and
+                           #   vice-versa. Must be > foreground_far_boundary.
+                           #   Defaults to 1e8
+  celestial_foreground_bias: # Optional float scale factor multiplied by
+                           #   foreground_far_boundary that applies only
+                           #   to celestial sized object when determining
+                           #   which layer (foreground or midground) they
+                           #   should enter. Value should be >= 0.0 and
+                           #   < 1.0. Reduce to make it more difficult for
+                           #   celestial objects to enter the foreground
+                           #   Use 0.0 to make celestial objects never
+                           #   enter the foreground. Defaults to 0.01
 
 picker:       # Optional dictionary which holds information about the picker
   tolerance:  # Optional float threshold for picking (right click) actors

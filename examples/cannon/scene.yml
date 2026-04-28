@@ -191,8 +191,9 @@ vectors:
         faces_camera: 1
 lighting:
     start_mode: ultrabright
-camera:
-    position: [30.5, -10.0, 10.0]
+cameras:
+  default:
+    pos: [30.5, -10.0, 10.0]
     focal_point: [0.0, 0.0, 0.0]
     view_up: [0.0, 0.0, 1.0]
-    follow: ball
+    parent: ball

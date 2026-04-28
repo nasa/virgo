@@ -21,9 +21,10 @@ actors:
     # earth's entire node with set_pose(), see screensaver.py. pos: is
     # intended for offsetting a mesh within the node, not moving the node
     # itself.
-camera:
-  position: [0.0, -13381000.0, 0]  # Initial camera position
-  focal_point: [0, 0, 0]           # Where the camera points
+cameras:
+  default:
+    pos: [0.0, -13381000.0, 0]  # Initial camera position
+    focal_point: [0, 0, 0]           # Where the camera points
 sun:
   direction: [1.0, 0.0, 0.0]  # World vector pointing towards sun
 lighting:

@@ -113,11 +113,11 @@ class VirgoHud:
         y_pos = window_height - text_height - hud_padding  # Bottom edge (20 pixels from bottom)
         self.text_actors['mode'].SetPosition(x_pos, y_pos)
 
-    def configure_time_and_lighting(self, window_width, window_height, hud_padding=20):
+    def configure_time_lighting_koviz(self, window_width, window_height, hud_padding=20):
         """
         Configure HUD with the time information (upper right)
         """
-        # Get the text bounding box in display coordinates  [xmin, xmax, ymin, ymax]
+        # Time
         bounds = [0] * 4
         self.text_actors['time'].GetBoundingBox(self.renderers['foreground'], bounds)
         text_height = bounds[3] - bounds[2] + 1  # Height in pixels
@@ -131,6 +131,7 @@ class VirgoHud:
             f"World time: {self.world_time:<10.5f} / {self.max_sim_time} sec [{percent_complete} %]"
             )
 
+        # Lighting
         lighting_info = f"Lighting: {self.lighting_mode}" 
         self.text_actors['lighting'].SetInput(f"{lighting_info}")
         bounds_lighting = [0] * 4 # Get the text bounding box in display coordinates  [xmin, xmax, ymin, ymax]
@@ -138,6 +139,15 @@ class VirgoHud:
         lighting_text_width = bounds_lighting[1] - bounds_lighting[0] + 1  # Width in pixels
         lighting_text_height = bounds_lighting[3] - bounds_lighting[2] + 1  # Height in pixels
         self.text_actors['lighting'].SetPosition(hud_padding, y_pos-lighting_text_height)
+
+        # koviz
+        koviz_info = f"koviz: {self.koviz_status}" 
+        self.text_actors['koviz'].SetInput(f"{koviz_info}")
+        bounds_koviz = [0] * 4
+        self.text_actors['koviz'].GetBoundingBox(self.renderers['foreground'], bounds_koviz)
+        koviz_text_width = bounds_koviz[1] - bounds_koviz[0] + 1  # Width in pixels
+        koviz_text_height = bounds_koviz[3] - bounds_koviz[2] + 1  # Height in pixels
+        self.text_actors['koviz'].SetPosition(hud_padding, y_pos - lighting_text_height - koviz_text_height)
 
     def configure_camera(self, window_width, window_height, hud_padding=20):
         """
@@ -246,9 +256,9 @@ class VirgoHud:
         self.text_actors['version'].SetInput(version_text)
 
     def configure(self, mode, camera_style, camera, playback_speed,
-                  picked_actor, picker_tolerance, world_time, 
-                  min_sim_time, max_sim_time, near_clipping_plane_tolerance,
-                  lighting_mode, help):
+                  picked_actor, picker_tolerance, world_time, min_sim_time,
+                  max_sim_time, near_clipping_plane_tolerance, lighting_mode,
+                  koviz_status, help):
         """
         Configure the heads-up-display.  Calls functions for each logical
         section of the HUD. Does not render.
@@ -266,12 +276,13 @@ class VirgoHud:
         self.min_sim_time = min_sim_time
         self.max_sim_time = max_sim_time
         self.lighting_mode = lighting_mode
+        self.koviz_status = koviz_status
         self.help = help
 
         ww, wh  = self.render_window.GetSize()
         self.configure_picked_info(window_width=ww, window_height=wh)
         self.configure_mode(window_width=ww, window_height=wh)
-        self.configure_time_and_lighting(window_width=ww, window_height=wh)
+        self.configure_time_lighting_koviz(window_width=ww, window_height=wh)
         self.configure_camera(window_width=ww, window_height=wh)
         self.configure_help(window_width=ww, window_height=wh)
         self.configure_version(window_width=ww, window_height=wh)

@@ -16,6 +16,7 @@ from VirgoConsole import VirgoConsole
 from VirgoUtils import cprint, timed_debug, time_render_layers
 from VirgoRendering import VirgoRendering
 from VirgoCamera import VirgoCamera
+from VirgoKovizInterface import KovizInterface
 
 import os, sys, inspect, time, tempfile
 import math, textwrap
@@ -87,7 +88,7 @@ class VirgoControlCenter:
     """
     # The order of these are important, must list them back to front
     def __init__(self, renderers, render_window, interactor, scene,
-                 world_time=0.0, images_dir=None):
+                 world_time=0.0, images_dir=None, koviz_port=64053):
         """
         Initializer of the VirgoControlCenter
         """
@@ -102,6 +103,7 @@ class VirgoControlCenter:
         self.images_dir = images_dir       # Where pictures go when taken
         if images_dir == None:
             self.images_dir = os.path.expanduser("~/Desktop")
+        self.koviz_interface = KovizInterface(port=koviz_port)
         self.mode = 'PLAYING'              # 'PAUSED' or 'PLAYING'
         self.fs = 14      # font size
         self.renderers = renderers
@@ -235,6 +237,7 @@ class VirgoControlCenter:
         self.text_actors['help'] = self.create_overlay_text_actor()
         self.text_actors['camera'] = self.create_overlay_text_actor()
         self.text_actors['lighting'] = self.create_overlay_text_actor()
+        self.text_actors['koviz'] = self.create_overlay_text_actor()
         self.text_actors['version'] = self.create_overlay_text_actor()
 
     def initialize_scene_settings(self):
@@ -719,31 +722,44 @@ class VirgoControlCenter:
                            world_time=self.world_time, min_sim_time=self.min_sim_time,
                            max_sim_time=self.max_sim_time, 
                            near_clipping_plane_tolerance=self.near_clipping_plane_tolerance,
-                           lighting_mode=self.lighting_mode, help=self.help)
+                           lighting_mode=self.lighting_mode,
+                           koviz_status=self.koviz_interface.get_state(),
+                           help=self.help)
 
     def on_timer(self, caller, event):
         """
-        Main callback for executing the scene update loop
+        Main callback for executing the scene update loop. 
+        
+        1. Sync with koviz and if commanded to go to a particular time,
+           set the time in VIRGO to that time.
+        2. Enter the normal update loop for the scene which will self-manage
+           time if koviz has no time information.
+        3. Attempt to send time back to koviz
+
+        Note that if koviz never connects, the koviz logic does nothing.
         """
         self.wallclock_time = time.time()  # Actual wall clock time in real life
+        go_to_time = self.clamp_world_time(self.koviz_interface.update())
+        if go_to_time:
+            self.set_time(go_to_time)
         self.update()
+        self.koviz_interface.send_time(self.world_time)
 
         time_one_frame_took = time.time() - self.wallclock_time
         if time_one_frame_took > self.dt:
             print(f"WARNING: Frame took {time_one_frame_took} sec to complete which is "
                   f"larger than self.dt ({self.dt}). Playback rate may not be accurate")
 
-    def focus_camera_on(self, actor):
+    def clamp_world_time(self, intime):
         """
-        Point the camera at the given actor
-        Assumes actor is positioned with matrix data, not position data
+        Clamp intime to the valid min/max range of simulation/world time
+
+        Returns a float between self.min_sim_time and self.max_time (inclusive),
+            or None if intime is None
         """
-        matrix = actor.GetMatrix()
-        pos =[ matrix.GetElement(0, 3),  matrix.GetElement(1, 3), matrix.GetElement(2, 3)]
-        main_camera = self.get_active_camera()
-        main_camera.set_focal_point(pos[0], pos[1], pos[2])
-
-
+        if intime == None:
+            return intime
+        return(max(self.min_sim_time, min(self.max_sim_time, intime)))
 
     def pick_this_layer(self, click_pos, layer):
         """
@@ -1328,7 +1344,7 @@ class VirgoControlCenter:
     def set_time(self, time):
         """Move the scene to the given world time"""
         if time > self.max_sim_time or time < self.min_sim_time:
-            msg = ("ERROR: set_time(time) time value must be <="
+            msg = (f"ERROR: set_time(time) time value {time} must be <="
                    f"{self.max_sim_time} and >= {self.min_sim_time}")
             raise RuntimeError(msg)
         self.world_time = time
@@ -1945,7 +1961,7 @@ class VirgoScene:
 
     def __init__(self, scene, verbosity=1, headless=False, stop_time=None,
                  images_dir="/tmp/", video_filename="/tmp/virgo.mp4",
-                 splash=True, scene_yaml_path=None,
+                 splash=True, scene_yaml_path=None, koviz_port=64053,
                  controller_class: Optional[Type[VirgoControlCenter]] = None,
                  controller_kwargs: Optional[Dict[str, Any]] = None,
                  interactor_class: Optional[Type[vtkInteractorStyle]] = None,
@@ -1964,6 +1980,7 @@ class VirgoScene:
         self.splash = splash
         # Optional path to the YAML file associated with self.scene
         self.scene_yaml_path = scene_yaml_path
+        self.koviz_port = koviz_port
         self.headless = headless
         # TODO: consider using stop_time in interactive mode as well
         self.stop_time = stop_time  # For headless mode, stop at this time
@@ -2004,8 +2021,11 @@ class VirgoScene:
         # TODO should this also be override-able?
         self.first_person_interactor_style = VirgoInteractorStyleFirstPerson(renderers=self.renderers,
                                                  **interactor_kwargs)
-        self.controller = controller_class(self.renderers, self.render_window,
-                                             self.interactor, self.scene,
+        self.controller = controller_class(renderers=self.renderers,
+                                           render_window=self.render_window,
+                                           interactor=self.interactor,
+                                           scene=self.scene,
+                                           koviz_port=self.koviz_port,
                                              **controller_kwargs)
 
 

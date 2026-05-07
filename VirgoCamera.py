@@ -47,7 +47,7 @@ class VirgoCamera():
         # camera. TODO: I think this number can go lower using
         # double precision but we really need to test it before
         # adjusting it too much - Jordan 4/2026
-        self.pos_fp_tolerance = 1e-7
+        self.pos_fp_tolerance = 1e-10
         # Same tolerance but for view_up parallel to view direction
         self.parallel_view_up_tolerance = 1e-6
         self.view_up = view_up

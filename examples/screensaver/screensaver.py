@@ -17,7 +17,8 @@ class VirgoScreenSaverControlCenter(VirgoControlCenter):
   implement custom functionality.
   """
   def __init__(self, renderers, render_window, interactor, scene,
-            weather_api_key, zip, world_time=0.0, images_dir=None):
+            weather_api_key, zip, world_time=0.0, images_dir=None,
+            koviz_port=64053):
     self.weather_api_key = weather_api_key
     self.zip = zip
     super().__init__(renderers=renderers, render_window=render_window,

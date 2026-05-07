@@ -1,4 +1,4 @@
-from Virgo import VirgoScene, VirgoControlCenter, VirgoTrackballInteractorStyle
+from Virgo import VirgoScene
 from VirgoTrickpyFileLoader import VirgoTrickpyFileLoader
 from VirgoDataSource import VirgoDataFileSource
 from VirgoNode import VirgoSceneNode
@@ -14,12 +14,13 @@ class VirgoDataPlayback(VirgoScene):
     """
     def __init__(self, run_dir, scene, verbosity=1, headless=False,
                  images_dir="/tmp/", video_filename="/tmp/virgo.mp4",
-                 splash=True, scene_yaml_path=None):
+                 splash=True, scene_yaml_path=None, koviz_port=64053):
         self.run_dir = run_dir
         self.vdl = None
         super().__init__(scene=scene, verbosity=verbosity, headless=headless,
                          images_dir=images_dir, video_filename=video_filename,
-                         splash=splash, scene_yaml_path=scene_yaml_path)
+                         splash=splash, scene_yaml_path=scene_yaml_path,
+                         koviz_port=koviz_port)
 
     def _verify_scene(self):
         super()._verify_scene()
@@ -37,6 +38,7 @@ class VirgoDataPlayback(VirgoScene):
         """
         if self.vdl:
           self.vdl.load_variables()  # Load all variables from VirgoTrickpyFileLoader
+          self.controller.koviz_interface.set_expected_run_dir(self.run_dir)
         super().initialize()
 
     def create_node(self, actor, actor_scene_dict=None, _class=VirgoSceneNode):

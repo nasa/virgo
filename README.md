@@ -296,6 +296,16 @@ Details TBD
 
 Details TBD
 
+## Koviz Time Sync Support
+
+VIRGO can connect directly to an instance of [koviz](https://github.com/nasa/koviz) running on the same machine operating on the same data directory which can provide deeper introspection to the user for variables that don't display well in 3D space. The default port for this connection is currently 64053 and both VIRGO and `koviz` are listening for a connection on this port. When connected, time will be shared across applications and you will see information about the connection and port in the top left section of the default VIRGO HUD. Here's an example of what it looks like when a connection is made:
+
+![virgo_and_koviz](images/doc/virgo_and_koviz.mp4)
+
+Notice that any action that manipulates time in VIRGO is also reflected in `koviz`, and vice versa.  The `koviz_port` can be adjusted in the creation of `VirgoDataPlayback` and we recommend you allow this port to be specified by the end user of your VIRGO application. [Soon](https://github.com/nasa/koviz/pull/17) we expect `koviz` to also be able to manipulate this port on the command line so check `koviz -h` for more information about this as multiple people using VIRGO/koviz on the same machine could interfere with each other if all using the same port.
+
+**TIP**: In `koviz` when a curve is selected you can hold shift while moving the mouse in the `koviz` window to not affect the commanded time.
+
 ## Examples
 
 Standalone examples can be found under the `examples/` directory.  If you are new to VIRGO we suggest approaching the examples in this order, and be sure to see each directory's `README.md` for more detailed information.

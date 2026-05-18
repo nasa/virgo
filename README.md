@@ -304,7 +304,8 @@ VIRGO can connect directly to an instance of [koviz](https://github.com/nasa/kov
 
 Notice that any action that manipulates time in VIRGO is also reflected in `koviz`, and vice versa.  The `koviz_port` can be adjusted in the creation of `VirgoDataPlayback` and we recommend you allow this port to be specified by the end user of your VIRGO application. [Soon](https://github.com/nasa/koviz/pull/17) we expect `koviz` to also be able to manipulate this port on the command line so check `koviz -h` for more information about this as multiple people using VIRGO/koviz on the same machine could interfere with each other if all using the same port.
 
-**TIP**: In `koviz` when a curve is selected you can hold shift while moving the mouse in the `koviz` window to not affect the commanded time.
+**TIP 1**: In `koviz` when a curve is selected you can hold shift while moving the mouse in the `koviz` window to not affect the commanded time.
+**TIP 2**: If you need to kill VIRGO's connection to `koviz` you can open the console and type `koviz disconnect`. Reconnecting after a forcibly disconncect will require reloading the VIRGO window.
 
 ## Examples
 

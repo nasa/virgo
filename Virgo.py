@@ -739,9 +739,9 @@ class VirgoControlCenter:
         Note that if koviz never connects, the koviz logic does nothing.
         """
         self.wallclock_time = time.time()  # Actual wall clock time in real life
-        go_to_time = self.clamp_world_time(self.koviz_interface.update())
+        go_to_time = self.koviz_interface.update()
         if go_to_time:
-            self.set_time(go_to_time)
+            self.set_time(self.clamp_world_time(go_to_time))
         self.update()
         self.koviz_interface.send_time(self.world_time)
 
@@ -1083,6 +1083,24 @@ class VirgoControlCenter:
         """
         self.first_person_style.set_node(node)
         self.trackball_style.set_node(node)
+
+    @virgo_console
+    def koviz(self, command):
+        help = ("Usage: koviz <command>\nExamples:\n"
+        "  koviz status\n"
+        "  koviz disconnect"
+        )
+        if command == 'help':
+            return help
+        if command == 'status':
+            return self.koviz_interface.get_state()
+        elif command == 'disconnect' or command == 'stop':
+            self.koviz_interface.stop()
+            return self.koviz_interface.get_state()
+        elif command == 'connect' or command == 'start':
+            return self.koviz_interface.start()
+        else:
+           return(f"Unrecognized command {command}")
 
     @virgo_console
     def fontsize(self, direction='up'):

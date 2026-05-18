@@ -24,6 +24,7 @@ import ut_VirgoControlCenter
 import ut_VirgoSceneNode
 import ut_VirgoLabel
 import ut_VirgoConsole
+import ut_VirgoKovizInterface
 import ut_VirgoDictVerifier
 import ut_VirgoTrail
 import ut_VirgoCamera
@@ -61,6 +62,7 @@ if __name__ == '__main__':
         suites.addTests(ut_VirgoControlCenter.suite())
         suites.addTests(ut_VirgoInteractorStyles.suite())
         suites.addTests(ut_VirgoConsole.suite())
+        suites.addTests(ut_VirgoKovizInterface.suite())
         suites.addTests(ut_VirgoDictVerifier.suite())
         suites.addTests(ut_VirgoTrail.suite())
         suites.addTests(ut_VirgoCamera.suite())

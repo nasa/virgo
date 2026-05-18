@@ -5,6 +5,8 @@ import time
 import sys, os, yaml, inspect
 from pathlib import Path
 
+
+
 class KovizThread(threading.Thread):
     """
     A thread that connects to the koviz host/port and allows for communication
@@ -14,18 +16,32 @@ class KovizThread(threading.Thread):
     This class was modeled after the example provided by koviz/blender/koviz.py
     """
 
-    HOST = '127.0.0.1'  # Localhost only supported right now
+    HOST = '127.0.0.1'
     MAX_MSG_SIZE = 1024
 
     def __init__(self, event_queue: queue.Queue, port=64053):
         super().__init__(daemon=True)
         self._q = event_queue
-        self.port = port
         self._lock = threading.Lock()
         self._last_sent_time = None
         self._client_sock = None
         self._is_running = False
         self.error_msg = None
+
+        # Bind eagerly so callers can read self.port before run() is called
+        self._listen_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        self._listen_sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        try:
+            self._listen_sock.bind((self.HOST, port))
+        except OSError as e:
+            self.error_msg = f"ERROR: Could not bind to {self.HOST}:{port}\n {e}"
+            print(f'[koviz] {self.error_msg}')
+            self._listen_sock = None
+        else:
+            self._listen_sock.listen(1)
+            self.port = self._listen_sock.getsockname()[1]  # reflects actual port if 0 was passed
+
+
 
     def start(self):
         self._is_running = True
@@ -80,22 +96,13 @@ class KovizThread(threading.Thread):
             self._q.put(event)
 
     def run(self):
-        listen_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        listen_sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        listen_sock.settimeout(2)
-        try:
-            listen_sock.bind((self.HOST, self.port))
-        except OSError as e:
-            msg = (f"ERROR: Could not bind to {self.HOST}:{self.port}\n {e}")
-            self.error_msg = msg
-            print(f'[koviz] {msg}')
+        if self._listen_sock is None:
             return
-        listen_sock.listen(1)
         print(f'[koviz] Listening on {self.HOST}:{self.port}')
 
         while self._is_running:
             try:
-                client, addr = listen_sock.accept()
+                client, addr = self._listen_sock.accept()
                 client.settimeout(2)
                 with self._lock:
                     self._client_sock = client
@@ -114,6 +121,9 @@ class KovizThread(threading.Thread):
                     continue
                 if not raw:
                     print('[koviz] Disconnected')
+                    # Reset run_dir to None on disconnect so re-checks happen
+                    # on later reconnection
+                    self.run_dir = None
                     self._q.put({'connected': False})
                     break
                 self._parse(raw)
@@ -123,7 +133,7 @@ class KovizThread(threading.Thread):
                     self._client_sock.close()
                 self._client_sock = None
 
-        listen_sock.close()
+        self._listen_sock.close()
         print('[koviz] Server shut down')
 
     def get_port(self):
@@ -181,8 +191,10 @@ class KovizInterface():
         the run dir information. This function only runs when we have that
         information.
         """
-        # We already checked, or we don't have the run_dir from koviz yet
-        if self.run_dir_checked == True or self.run_dir == None:
+        #print(f"DEBUG: self.run_dir: {self.run_dir} and self.run_dir_checked: {self.run_dir_checked}")
+        # We already checked since last connection, or we don't have the run_dir
+        # from koviz yet
+        if  self.run_dir == None or self.run_dir_checked == True:
             return
 
         #import pdb; pdb.set_trace()
@@ -193,8 +205,8 @@ class KovizInterface():
                 f"ports in both apps (VIRGO is listening on {self.get_port()}) "
                 f"and make sure they are operating on the same run "
                 f"directory")
-            self.state = 'ERROR: RUN dir mismatch, see console'
-            self.stop()
+            state = 'RUN dir mismatch, see console'
+            self.stop(reason=state)
         else:
             self.run_dir_checked = True
             return
@@ -207,8 +219,8 @@ class KovizInterface():
         Returns: Floating point time commanded from koviz or None if no koviz
         time commanded
         """
-        if 'ERROR' in self.state:
-            return
+        if 'ERROR' in self.state or 'disconnected by user' in self.state:
+            return None
         ret = self.poll()
         if self.state == 'connected':
             self.check_run_dir()
@@ -224,6 +236,7 @@ class KovizInterface():
         while not self._koviz_q.empty():
             try:
                 event = self._koviz_q.get_nowait()
+                #print(f'DEBUG: [koviz] event is {event}')
             except queue.Empty:
                 break
             if 'connected' in event:
@@ -231,6 +244,8 @@ class KovizInterface():
                 #print(f'[koviz] {self.state}')
             if 'run' in event:
                 self.run_dir = Path(event["run"]).resolve()
+                # Everytime we get a new run_dir, make sure we check against it
+                self.run_dir_checked = False
                 #print(f'[koviz] run dir: {self.run_dir}')
             if 't' in event:
                 go_to_time = float(event['t'])
@@ -246,6 +261,12 @@ class KovizInterface():
         except RuntimeError as e:
             print(f'[koviz] Seek failed: {e}')
 
-    def stop(self):
+    def stop(self, reason=''):
         self._koviz_thread.stop()
+        self.state = "stopped"
+        if reason:
+            self.state += ": " + reason
+
+    def start(self):
+        self._koviz_thread._is_running = True
 

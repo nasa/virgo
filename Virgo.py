@@ -742,6 +742,7 @@ class VirgoControlCenter:
         go_to_time = self.koviz_interface.update()
         if go_to_time != None:
             self.set_time(self.clamp_world_time(go_to_time))
+            self.mode = 'PAUSED'
         self.update()
         self.koviz_interface.send_time(self.world_time)
 

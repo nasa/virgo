@@ -252,9 +252,9 @@ TBD: Details on the playback rate and showing data at a particular world time go
 
 Trails are lines drawn between world coordinate points occupied by actors as they are encountered by changing the world time in the interactive scene. They show you where an actor has been in the past (or future if stepping backward) and are very useful for showing spacecraft orbits to end users.  Trails can be enabled/disabled with the `t` key and are completely reset when reaching the start/end boundary of simulation data associated with the scene. Trails are also reset if the world time is commanded to another location via `time <new_time>` in the console.
 
-It's important to note that because VIRGO doesn't necessarily render every time step associated with simulation data, the visible trail may not be displaying all spatial points between two positions. For example if simulation data is provided every 1.0 seconds, but the playback speed is set to 1000X while trails are enabled, many simulation data points will be skipped as the scene renders data points only at the simulation data encountered rendered frame to rendered frame.
+It's important to note that because VIRGO doesn't necessarily render every time step associated with simulation data, the visible trail may not be displaying all spatial points between two sim-data-driven positions. For example if simulation data is provided every 1.0 seconds, but the playback speed is set to 1000X while trails are enabled, many simulation data points will be skipped as the scene renders data points only at the simulation data encountered rendered frame to rendered frame.
 
-Additionally, trails are automatically created as segmented actors in the scene, which means if a trail gets long enough another segment is created until the segment buffer is full. This is still under development but allows for more realistic trails in very large scale scenes as these trail actors interact with the [rendering layers](#rendering-layers).
+Additionally, trails are automatically created as segmented actors in the scene, which means if a trail gets long enough another segment is created until the segment buffer is full. This is still under development but allows for more realistic trails in very large scale scenes as these trail actors interact with the [rendering layers](#rendering-layers). Press `d` to enable debug mode which renders trail segments as unique colors.
 
 ## Cameras
 
@@ -304,8 +304,10 @@ VIRGO can connect directly to an instance of [koviz](https://github.com/nasa/kov
 
 Notice that any action that manipulates time in VIRGO is also reflected in `koviz`, and vice versa.  The `koviz_port` can be adjusted in the creation of `VirgoDataPlayback` and we recommend you allow this port to be specified by the end user of your VIRGO application. [Soon](https://github.com/nasa/koviz/pull/17) we expect `koviz` to also be able to manipulate this port on the command line so check `koviz -h` for more information about this as multiple people using VIRGO/koviz on the same machine could interfere with each other if all using the same port.
 
-**TIP 1**: In `koviz` when a curve is selected you can hold shift while moving the mouse in the `koviz` window to not affect the commanded time.
-**TIP 2**: If you need to kill VIRGO's connection to `koviz` you can open the console and type `koviz disconnect`. Reconnecting after a forcibly disconncect will require reloading the VIRGO window.
+Note that this feature is still in development and there are some limitations to be aware of. For example when interacting with curves in the `koviz` window, the VIRGO scene will forced to a `PAUSED` state if it's currently `PLAYING` to prevent the applications from fighting each other in commanding time. Also be aware that when `koviz` commands a time to `VIRGO` all actor trails are purposefully cleared to prevent visual clutter in the scene.
+
+* **TIP 1**: In `koviz` when a curve is selected you can hold shift while moving the mouse in the `koviz` window to not affect the commanded time.
+* **TIP 2**: If you need to kill VIRGO's connection to `koviz` you can open the console and type `koviz disconnect`. Reconnecting after a forcibly disconncect will require reloading the VIRGO window.
 
 ## Examples
 

@@ -56,6 +56,8 @@ class VirgoEntryControlCenter(VirgoControlCenter):
           self.altitude_texts[l] = VirgoLabel(name=l,text=f"{l} reached")
           self.altitude_texts[l].set_yaw_pitch_roll([-90, 0, 0])
           self.altitude_texts[l].set_scale(1.0e4) # Default size of text
+          # Make the label 100% bright regardless of the lighting mode
+          self.altitude_texts[l].set_ambient(1.0)
           self.altitude_texts[l].enable()
           # Midground is most suited for these labels as they stretch across large
           # sections of the earth circumference

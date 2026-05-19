@@ -49,6 +49,12 @@ class VirgoLabel():
         self.enabled = True
         self.disable()  # Turn it off by default
 
+    def set_ambient(self, value):
+        """
+        Set the ambient value of the label text
+        """
+        self.get_follower().GetProperty().SetAmbient(value)
+
     def set_scale(self, scale):
         self.scale = scale
         self.label_follower.SetScale(self.scale, self.scale, self.scale)
@@ -110,6 +116,12 @@ class VirgoLabel():
         Set the color of the label text
         """
         self.label_follower.GetProperty().SetColor(color)
+
+    def set_ambient(self, value):
+        """
+        Set the ambient light value of the label text
+        """
+        self.label_follower.GetProperty().SetAmbient(value)
 
 
     def set_when(self, wh):

@@ -740,7 +740,7 @@ class VirgoControlCenter:
         """
         self.wallclock_time = time.time()  # Actual wall clock time in real life
         go_to_time = self.koviz_interface.update()
-        if go_to_time:
+        if go_to_time != None:
             self.set_time(self.clamp_world_time(go_to_time))
         self.update()
         self.koviz_interface.send_time(self.world_time)
@@ -926,6 +926,13 @@ class VirgoControlCenter:
         for n in self.nodes:
             if self.nodes[n].actor:
                 self.nodes[n].actor.GetProperty().SetAmbient(value)
+            # TODO: we should probably make all labels self.bright_ambient
+
+    def set_ambient_all_labels(self, value):
+        for n in self.nodes:
+            labels = self.nodes[n].get_labels()
+            for l in labels:
+                labels[l].set_ambient(value)
             # TODO: we should probably make all labels self.bright_ambient
 
     @virgo_console
@@ -1903,6 +1910,8 @@ class VirgoControlCenter:
         self.camera_pass.SetDelegatePass(seq)
 
         self.set_lighting_mode(self.lighting_mode)
+        # Make all labels 100% bright always
+        self.set_ambient_all_labels(1.0)
 
     def get_node(self, name):
         if name not in self.nodes:

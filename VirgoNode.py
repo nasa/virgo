@@ -281,6 +281,9 @@ class VirgoSceneNode():
             raise RuntimeError (msg)
         return self.labels[name]
 
+    def get_labels(self):
+        return self.labels
+
     def initialize_labels(self, world_time):
         """
         Initialize all labels in this node

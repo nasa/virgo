@@ -111,7 +111,11 @@ class VirgoTrickpyFileLoader(VirgoDataLoader):
             if self.verbosity > 1:
                 for v in load_these_variables:
                     print(f"  {v}")
-        self.drg = dr.load_run(self.run_dir, variables=load_these_variables)
+
+        # We skip_errors=True to ignore the known issue where a CSV file of 0 bytes
+        # will raise an error in _read_csv_info:703 -Jordan 5/2026
+        self.drg = dr.load_run(self.run_dir, variables=load_these_variables,
+                               skip_errors=True)
         if self.verbosity > 0:
             print(f"Done.")
 

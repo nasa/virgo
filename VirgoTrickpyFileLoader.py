@@ -115,7 +115,7 @@ class VirgoTrickpyFileLoader(VirgoDataLoader):
         # We skip_errors=True to ignore the known issue where a CSV file of 0 bytes
         # will raise an error in _read_csv_info:703 -Jordan 5/2026
         self.drg = dr.load_run(self.run_dir, variables=load_these_variables,
-                               skip_errors=True)
+                               skip_errors=True, show_progress=False)
         if self.verbosity > 0:
             print(f"Done.")
 

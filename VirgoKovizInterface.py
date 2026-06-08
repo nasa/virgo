@@ -50,6 +50,7 @@ class KovizThread(threading.Thread):
 
     def stop(self):
         self._is_running = False
+        self._listen_sock.close()
 
     def send_time(self, t: float):
         """
@@ -161,10 +162,17 @@ class KovizInterface():
     def set_expected_run_dir(self, expected_run_dir):
         self.expected_run_dir = Path(expected_run_dir).resolve()
 
+    def set_state(self, in_state):
+        """
+        TODO: use this setter everywhere and check for valid states
+        """
+        self.state = in_state
+
     def get_state(self):
         if self._koviz_thread.error_msg != None:
             return(self._koviz_thread.error_msg)
-        elif 'disconnect' not in self.state and 'ERROR' not in self.state:
+        elif ('disconnect' not in self.state and 'ERROR' not in self.state
+              and 'stopped' not in self.state):
             port = self.get_port()
             return (f"{self.state} on port {port}")
         else:

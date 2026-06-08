@@ -740,11 +740,14 @@ class VirgoControlCenter:
         """
         self.wallclock_time = time.time()  # Actual wall clock time in real life
         go_to_time = self.koviz_interface.update()
-        if go_to_time != None:
+        if go_to_time != None and not self.timeless:
             self.set_time(self.clamp_world_time(go_to_time))
             self.mode = 'PAUSED'
+
         self.update()
-        self.koviz_interface.send_time(self.world_time)
+
+        if not self.timeless:
+            self.koviz_interface.send_time(self.world_time)
 
         time_one_frame_took = time.time() - self.wallclock_time
         if time_one_frame_took > self.dt:
@@ -1369,6 +1372,11 @@ class VirgoControlCenter:
 
     def set_time(self, time):
         """Move the scene to the given world time"""
+        if self.timeless:
+            msg = (f"ERROR: Cannot set time to {time} as this scene "
+                   f"is determined to be timeless which means no actor has "
+                   f"a driven state")
+            raise RuntimeError(msg)
         if time > self.max_sim_time or time < self.min_sim_time:
             msg = (f"ERROR: set_time(time) time value {time} must be <="
                    f"{self.max_sim_time} and >= {self.min_sim_time}")
@@ -1512,8 +1520,10 @@ class VirgoControlCenter:
         self.cameras['background'].set_clipping_range(1e10, 1e17)
         # NOTE this skybox clipping range appears optimal and I'm not sure
         # why, other ranges result in the skybox becoming erratic in scenes
-        # with inertial sized bodies and distances
-        self.cameras['skybox'].set_clipping_range(1e6, 1e10)
+        # These values worked well until we got our first object near 1e12
+        # in world coordinates. -Jordan June 2026
+        #self.cameras['skybox'].set_clipping_range(1e6, 1e10)
+        self.cameras['skybox'].set_clipping_range(1e8, 1e12)
 
         # Set the active camera to the default cam which is guaranteed to exist
         self.set_active_camera(cam_name='default')

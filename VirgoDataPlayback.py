@@ -39,6 +39,8 @@ class VirgoDataPlayback(VirgoScene):
         if self.vdl:
           self.vdl.load_variables()  # Load all variables from VirgoTrickpyFileLoader
           self.controller.koviz_interface.set_expected_run_dir(self.run_dir)
+        else:
+          self.controller.koviz_interface.stop(reason="no loaded data")
         super().initialize()
 
     def create_node(self, actor, actor_scene_dict=None, _class=VirgoSceneNode):

@@ -502,10 +502,13 @@ actors:     # The dictionary which holds all actors in the scene. The
               #   picked  - show label when setting toggled and actor is picked
               #   always  - always show label
               #   never   - never show label
-    provide_aliases: # Optional list of data source alias key names. Additional
-                     #   data source aliases to provide to this actor's node's
-                     #   self.data_source member. This is an advanced feature
-                     #   primarily to support extending VirgoSceneNode capability
+    provide_data:  # Optional dict of data source aliases to provide to this
+                   # actor's node's self.data_source member. This is an
+                   # advanced feature primarily to support extending
+                   # VirgoSceneNode capability.
+      time:     # Name of the time alias from the data_source section above
+      aliases:  # List of data source alias names from the data_source section
+                # to be provided to this actor's node.
     layer:  # Optional rendering layer for this actor. Must be 'foreground',
             #   'midground', or 'background' and only applies to actors with no
             #   parent (root nodes). This can be used to combat Z-fighting in
@@ -612,7 +615,9 @@ cameras:      # Optional dictionary which defines the camera or cameras
                  #   given as the focal_point is the parent's origin in this
                  #   case
     view_up:    # Optional list of 3 floats describing the direction for the
-                #   camera's +Z axis. This defines the camera's up direction
+                #   camera's +Z axis. This defines the camera's up direction.
+                #   Ignored if parent is given and static is 1 as view_up is
+                #   automatically determined as parent's +Z in this case.
     view_angle: # Optional float describing the view angle (angular height of
                 #   the camera view) in degrees.  Defaults to 30 degrees.
     parent:     # Optional name of actor/node the camera should follow when 

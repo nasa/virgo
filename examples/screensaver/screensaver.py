@@ -186,7 +186,7 @@ class VirgoScreenSaverControlCenter(VirgoControlCenter):
     parent = self.cameras['default'].get_parent()
     if parent:
         pos=np.array(parent.get_world_position())
-        self.cameras['default'].SetFocalPoint(pos[0], pos[1], pos[2])
+        self.cameras['default'].set_focal_point(pos[0], pos[1], pos[2])
     # Tell the VirgoInteractorStyle instance about our new camera position
     self.interactor.GetInteractorStyle().StoreRelativeCameraInfo(None, None)
 
@@ -200,6 +200,7 @@ class VirgoScreenSaverControlCenter(VirgoControlCenter):
     self.display_weather()
     if self.mode == 'PLAYING':
         self.update_nodes()
+        self.configure_renderers()
         self.rotate()
 
 class VirgoScreenSaver(VirgoScene):

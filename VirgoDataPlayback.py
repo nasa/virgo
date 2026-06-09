@@ -84,13 +84,22 @@ class VirgoDataPlayback(VirgoScene):
             if 'transpose_rot' in driven_by and  driven_by['transpose_rot'] != None:
                 node.set_transpose_dcm(driven_by['transpose_rot'])
 
-        if ('provide_aliases' in actor_scene_dict and 
-            isinstance(actor_scene_dict['provide_aliases'], list)):
-            add_data= list(actor_scene_dict['provide_aliases']) # make a copy
+        if ('provide_data' in actor_scene_dict and 
+            actor_scene_dict['provide_data'] != None):
+            provide_data= dict(actor_scene_dict['provide_data']) # make a copy
+            add_data= list(provide_data['aliases'])              # make a copy
             # For every additional_data requested, get the full time-history
             # of that data from the data loader
             for alias in add_data:
                 additional_data[alias] = self.vdl.get_alias_data(alias=alias)
+            # In the case where driven_by isn't given, times must be populated
+            # for the VirgoDataFileSource construction, so get it from the
+            # provide_data: time: value. TODO: It would be nice if this was
+            # more intuitive as the class needs times but there's 2 ways it
+            # can be specified by the user here so this feels kinda clunky
+            #  -Jordan 6/2026
+            if times == None:
+                times = self.vdl.get_alias_datas(alias=provide_data['time'])
 
         if ( positions or rotations or scales or opacities or times or
              additional_data):

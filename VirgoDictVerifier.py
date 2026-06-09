@@ -209,6 +209,19 @@ class ActorDrivenBySchema(BaseModel):
             )
         return self
 
+class ProvideAliasesSchema(BaseModel):
+    time: str
+    aliases: Optional[list] = []
+
+    @model_validator(mode="after")
+    def validate_no_duplicate_aliases(self):
+        if len(self.aliases) != len(set(self.aliases)):
+            duplicates = {k for k in self.aliases if self.aliases.count(k) > 1}
+            msg = (f"Duplicate names detected: {duplicates}. There can be no "
+                  f"duplicate aliases: in a provide_data: section.")
+            raise ValueError(msg)
+        return self
+
 class LabelSchema(BaseModel):
     text: str
     pos: Vec3 = [0.0, 0.0, 0.0]
@@ -249,7 +262,7 @@ class ActorBaseSchema(BaseModel):
     pickable: bool = True
     parent: Optional[str] = None
     backface_culling: Optional[bool] = False
-    provide_aliases: List[str] = Field(default_factory=list)
+    provide_data: Optional[ProvideAliasesSchema] = None
 
     # --- SubSchemas ---
     axes: Optional[AxesSchema] = None
@@ -563,6 +576,30 @@ class SceneSchema(BaseModel):
             f"a valid data source alias. Valid data source aliases are {dsa}")
       return self
  
+    @model_validator(mode="after")
+    def validate_actor_provide_data(self):
+      """
+      Ensure all actor: provide_data: clauses are referencing a data source
+      alias that exists
+      """
+      ann = self.get_all_node_names()
+      if not ann:
+        return self
+      for a in ann:
+        thedict = self.get_node_dict(a)
+        if thedict.provide_data == None:
+          continue
+        dsa = list(self.data_source.trickpy.keys())
+        if thedict.provide_data.time not in dsa:
+          raise ValueError(
+            f"node {a} cannot have provide_data: time: {thedict.provide_data.time} as it "
+            f"is not a valid data source alias. Valid data source aliases are {dsa}")
+        for alias in thedict.provide_data.aliases:
+          if alias not in dsa:
+            raise ValueError(
+              f"node {a} cannot have provide_data: {alias} as it is not a valid "
+              f"data source alias. Valid data source aliases are {dsa}")
+      return self
 
     @model_validator(mode="after")
     def validate_playback_config(self):

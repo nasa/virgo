@@ -57,8 +57,10 @@ actors:
       time: time
       pos: sat_pos
       rot: sat_rot
-    provide_aliases: # Other data aliases this node should have access to
-      - sat_alt      # Expose altitude to this actor/node (used in extension)
+    provide_data: # Other data aliases this node should have access to
+      time: time
+      aliases:
+        - sat_alt     # Expose altitude to this actor/node (used in extension)
     labels:
       name:
         scale: 1.5

@@ -166,7 +166,7 @@ class VirgoConsole:
             return
 
         # --- CONSOLE INPUT LOGIC ---
-        if key == "Return":
+        if key in ["Return", "KP_Enter"]:
             if self.command_buffer.strip():
                 self.last_command = self.command_buffer.strip()
                 self.full_line_history.append(f"{self.prompt} {self.command_buffer}")

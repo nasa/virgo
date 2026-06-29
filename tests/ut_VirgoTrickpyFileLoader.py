@@ -11,6 +11,38 @@ meshes_dir=os.path.join(virgo_dir, 'meshes')
 tests_dir=os.path.join(virgo_dir, 'tests')
 from VisualizableTestCase import VisualizableTestCase
 
+def generate_increasing_numbers_2D_array(num_rows, num_columns):
+    """
+    Write a function to create "dummy data" matching patterns in .csv data files
+    Generates a numpy array of given size. The first element starts at 1 and
+    increases by 1 for each index following row, column. Examples below:
+
+    generate_increasing_numbers_2D_array(3, 3)
+    <class 'numpy.ndarray'>
+    [[1. 2. 3.]
+     [4. 5. 6.]
+     [7. 8. 9.]]
+
+    generate_increasing_numbers_2D_array(1, 4)
+    <class 'numpy.ndarray'>
+    [1. 2. 3. 4.]
+
+    generate_increasing_numbers_2D_array(3, 1)
+    <class 'numpy.ndarray'>
+    [1. 2. 3.]
+
+    generate_increasing_numbers_2D_array(2, 3)
+    <class 'numpy.ndarray'>
+    [[1. 2. 3.]
+     [4. 5. 6.]]
+
+    """
+    expected_pattern = np.zeros((num_rows, num_columns))
+    for row in range(num_rows):
+        for column in range(num_columns):
+            expected_pattern[row, column] = row * num_columns + column + 1
+    return expected_pattern.squeeze()
+
 def suite():
     """Create test suite from test cases here and return"""
     suites = []
@@ -52,6 +84,22 @@ class VirgoDataLoaderSimpleTestCase(unittest.TestCase):
         self.trickpy_dict['rot']['var']       = "my.foo[0].R[0-2][0-2]"
         self.trickpy_dict['opacity']['var']   = "my.foo[0].bar[0]"
         self.trickpy_dict['vec1']['var']   = "my.foo[0][0][0].hi[0][0-2]"
+
+    def setUp_complex_array_sizes_01(self):
+        """A dict suitable for RUN_complex_array_sizes_01 dir"""
+        self.trickpy_dict                                               = {}
+        self.trickpy_dict['quaternion']                                 = {}
+        self.trickpy_dict['attitude_control_jets_duty_cycle']           = {}
+        self.trickpy_dict['state_error_covariance']                     = {}
+        self.trickpy_dict['twobythree']                                 = {}
+        self.trickpy_dict['quaternion']['group']                        = "one_body_static"
+        self.trickpy_dict['attitude_control_jets_duty_cycle']['group']  = "one_body_static"
+        self.trickpy_dict['state_error_covariance']['group']            = "one_body_static"
+        self.trickpy_dict['twobythree']['group']                        = "one_body_static"
+        self.trickpy_dict['quaternion']['var']                          = "q[0-3]"
+        self.trickpy_dict['attitude_control_jets_duty_cycle']['var']    = "acjdc[0-7]"
+        self.trickpy_dict['state_error_covariance']['var']              = "sec[0-5][0-5]"
+        self.trickpy_dict['twobythree']['var']                          = "tbt[0-1][0-2]"
 
     def test_expand_arrays(self):
         """
@@ -159,7 +207,36 @@ class VirgoDataLoaderSimpleTestCase(unittest.TestCase):
                                    ] )
         np.testing.assert_array_equal(rotations[0], expected_rot_0)
         pass
+    
+    def test_get_alias_datas_complex_array_sizes_01(self):
+        self.setUp_complex_array_sizes_01()
 
+        self.instance = VirgoTrickpyFileLoader(
+            run_dir=os.path.join(tests_dir, 'trickpy_data_source/RUN_complex_array_sizes_01'),
+            trickpy_dict=self.trickpy_dict,
+            verbosity=1)
+        
+        self.instance.load_variables()
+        quaternions = self.instance.get_alias_datas(alias='quaternion')
+        attitude_control_jets_duty_cycles = self.instance.get_alias_datas(alias='attitude_control_jets_duty_cycle')
+        state_error_covariances = self.instance.get_alias_datas(alias='state_error_covariance')
+        twobythrees = self.instance.get_alias_datas(alias='twobythree')
+
+        
+        
+        # Create test matrices to compare with
+        expected_quaternions_0 = generate_increasing_numbers_2D_array(1, 4)
+        expected_attitude_control_jets_duty_cycles_0 = generate_increasing_numbers_2D_array(1, 8)
+        expected_state_error_covariances_0 = generate_increasing_numbers_2D_array(6, 6)
+        expected_twobythrees_0 = generate_increasing_numbers_2D_array(2,3)
+
+        np.testing.assert_array_equal(quaternions[0], expected_quaternions_0)
+        np.testing.assert_array_equal(attitude_control_jets_duty_cycles[0], expected_attitude_control_jets_duty_cycles_0)
+        np.testing.assert_array_equal(state_error_covariances[0], expected_state_error_covariances_0)
+        np.testing.assert_array_equal(twobythrees[0], expected_twobythrees_0)
+        
+        pass
+    
 class VirgoDataLoaderOverlappingDataTestCase(unittest.TestCase):
     """
     In this test case we load variables that are defined in multiple

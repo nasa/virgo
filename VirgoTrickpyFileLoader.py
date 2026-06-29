@@ -175,7 +175,6 @@ class VirgoTrickpyFileLoader(VirgoDataLoader):
         exists = False
         for grp in self.drg:
           expanded_variables = self.expand_arrays(variable)
-          #import pdb; pdb.set_trace()
           for var in expanded_variables:
               # TODO this is a loose check, it doesn't check for all array indices
               if var in self.drg[grp]:
@@ -292,13 +291,17 @@ class VirgoTrickpyFileLoader(VirgoDataLoader):
           sat_vel:                       # Variable Alias
             group: Satellite             # DR Group
             var: dyn.satellite.vel[0-2]  # DR variable name
+          hud_gnc_od_covar:              # Variable Alias (this is not found in Satellite example)
+            group: Satellite             # DR Group
+            var: gnc_od_covar[0-5][0-5]  # DR variable name            
 
         This function returns entire sets of recorded data as lists of primitives
         arranged by array sizes of the data. For example:
            No array  (ex: time)      Returns a list of time values
-           1-D array (ex sat_pos)    Returns a list of tuples where is tuple is of size
+           1-D array (ex sat_pos)    Returns a list of tuples where tuple is of size
                                      associated with the 1-D array, e.g.
                                      [(x0, y0, z0), (x1, y1, z1) ... ]
+
            2-D array (ex sat_rot)    Returns a list of np.arrays of size associated with
                                      the 2-D array, e.g.
                                      [ 
@@ -312,6 +315,11 @@ class VirgoTrickpyFileLoader(VirgoDataLoader):
 
                                        ]
 
+                                       *For special cases, such as variable my.foo[0][0][0].hi[0][0-2]
+                                        the hi[0][0-2] causes it to be read as a 2-D array even though
+                                        it is 1-D. Instead of returning a list of np.array, it returns
+                                        a list of tuples, where each tuple is a 1-D vector.
+
         Returns: A list of lists of data values associated with alias, as acquired
          from the trickpy module
 
@@ -323,7 +331,7 @@ class VirgoTrickpyFileLoader(VirgoDataLoader):
         alias, alias_indices = self.split_variable_indices(alias)
         if alias_indices != '':
             msg = (f"ERROR: Indices found in {alias}. Do not include indices [] when calling "
-                   "get_alias_datas()")
+                   "get_alias_datas() - Don't name your aliases using indices [].")
             raise RuntimeError (msg)
         # Get the array indices defintion from the variable in the scene
         grp = self.trickpy_dict[alias]['group']
@@ -331,20 +339,63 @@ class VirgoTrickpyFileLoader(VirgoDataLoader):
 
         # Expand the variables to see how many array indices there are
         expanded_variables = self.expand_arrays(variable)
-        if len(expanded_variables) == 1:
-            datas = self.drg[grp][expanded_variables[0]].tolist()
-        elif len(expanded_variables) == 3:
-            datas = list(zip(
-                self.drg[grp][expanded_variables[0]].tolist(),
-                self.drg[grp][expanded_variables[1]].tolist(),
-                self.drg[grp][expanded_variables[2]].tolist()))
-        elif len(expanded_variables) == 9:
-            list_length = len(self.drg[grp][expanded_variables[0]])
-            for i in range(0, list_length):
-                datas.append( np.array(
-                [  [ self.drg[grp][expanded_variables[0]][i], self.drg[grp][expanded_variables[1]][i], self.drg[grp][expanded_variables[2]][i] ],
-                   [ self.drg[grp][expanded_variables[3]][i], self.drg[grp][expanded_variables[4]][i], self.drg[grp][expanded_variables[5]][i] ],
-                   [ self.drg[grp][expanded_variables[6]][i], self.drg[grp][expanded_variables[7]][i], self.drg[grp][expanded_variables[8]][i] ] ] )
-                ) 
 
+        # Check the length of expanded variables
+        exp_var_len = len(expanded_variables)
+
+        #Put the data into a list/tuple/array based on it's dimensions
+        if exp_var_len == 0:
+           msg = (f'ERROR: Variable data for alias: [{alias}] cannot be empty!')
+           raise RuntimeError (msg)
+
+        # Only one value (like time), return a list with value for each time
+        if exp_var_len == 1:
+            datas = self.drg[grp][expanded_variables[0]].tolist()
+
+        # Handle when multiple indices are given ([0-1][0-1] or [0][0-3], etc...)
+        elif '][' in variable:
+            # Get variable indices
+            _, var_indices = self.split_variable_indices(variable)
+            # Grab what's inside the brackets
+            brackets = re.findall(r'\[(.*?)\]', var_indices)
+            sizes = []
+            for b in brackets:
+                if '-' in b:
+                    # More than 1 row or column detected for this index
+                    _, end = b.split('-')
+                    # Grab the larger value and add 1 for indexing ([0-1] has size 1+1)
+                    sizes.append(int(end)+1)
+                else:
+                    # Only one row or column called, get the size of that dimension
+                    sizes.append(int(b)+1)
+
+            # Number of data points in the first component
+            list_length = len(self.drg[grp][expanded_variables[0]])
+
+            # Arrange the data in a numpy array to return
+            for i in range(0, list_length):
+                datas_array = np.zeros((sizes[0], sizes[1]))
+                for row in range(0, sizes[0]):
+                    for column in range(0, sizes[1]):
+                        idx = row*sizes[1] + column
+                        datas_array[row, column] = self.drg[grp][expanded_variables[idx]][i]
+
+                # Turn any 1xn arrays into tuples because that is what the old unit tests expect
+                # The tuple type may be required elsewhere in the code...
+                if datas_array.shape[0] == 1:
+                   datas_array = tuple(datas_array[0])
+                elif datas_array.shape[1] == 1:
+                   datas_array = tuple(datas_array[:,0])
+                datas.append(datas_array)
+
+        # Handle cases that are 1-D arrays, logged without multiple ([n][0-m])) indices given
+        # Any variable with indices like: myVariable[0-n] has made it to this check
+        else:
+            list_of_expanded_variables = []
+            # Create a list of lists, each list having a component's data for all times
+            for expanded_var_idx in range(len(expanded_variables)):
+                list_of_expanded_variables.append(self.drg[grp][expanded_variables[expanded_var_idx]].tolist())
+            # Combine the lists together so at each time step there is a list containing each component's data
+            datas = list(zip(*list_of_expanded_variables))
+        
         return datas

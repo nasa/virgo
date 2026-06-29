@@ -309,6 +309,17 @@ class DataSourceSchema(BaseModel):
         description="Dictionary of trickpy data aliases in the scene"
     ) 
     # TODO: variable server data source info goes here
+    
+@model_validator(mode='before')
+@classmethod
+def ensure_valid_alias_name(cls, data: Any) -> Any:
+    allowed_pattern = r'[_A-Za-z0-9.-]+'
+    for data_source in data:
+        for alias_name in data[data_source]:
+            if not re.fullmatch(allowed_pattern, alias_name):
+                raise ValueError(f'data alias {alias_name} cannot contain '
+                f'special characters. Only regex {allowed_pattern} allowed')
+        return data
 
 class ActorSchema(ActorBaseSchema):
     # --- Required ---

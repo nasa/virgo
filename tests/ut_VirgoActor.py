@@ -105,6 +105,37 @@ class VirgoActorTestCase(VisualizableTestCase):
         for i, (a, b) in enumerate(zip(self.instance.GetOrientation(), [0.0, 0.0, -45.0])):
             self.assertAlmostEqual(a, b)
         #self.vis(actors=self.instance, show_origin=1, show_grid=1)
+    
+    def test_init_with_dimensions_cube(self):
+        """
+        Test the VIRGO_PREFAB:cube option with custom dimensions - regular case
+        """
+        self.instance = VirgoActor(mesh="VIRGO_PREFAB:cube", dimensions=[3.0, 4.0, 5.0])
+        #self.vis(actors=self.instance, show_origin=1, show_grid=1)
+    
+    def test_init_with_zero_dimensions_cube(self):
+        """
+        Test the VIRGO_PREFAB:cube option with custom dimensions - zero error case
+        """
+        with self.assertRaises(ValueError):
+            self.instance = VirgoActor(mesh="VIRGO_PREFAB:cube", dimensions=[0,0,0])
+            self.vis(actors=self.instance, show_origin=1, show_grid=1)
+
+    # Holding off on testing to finalize location for error checking, whether within VirgoActor.py or just higher up.
+    # TODO negative dimension cube -> raise value error
+
+    def test_init_with_scale_cube(self):
+        """
+        Test the VIRGO_PREFAB:cube option with custom scaling
+        """
+        self.instance = VirgoActor(mesh="VIRGO_PREFAB:cylinder", dimensions=[5, 1], scale=0.5)
+        #self.vis(actors=self.instance, show_origin=1, show_grid=1)
+        self.instance.initialize()
+        self.assertEqual(self.instance._user_scale, 0.5)
+        self.assertEqual(self.instance.GetScale(), (0.5, 0.5, 0.5))
+
+    # TODO zero value scaling -> raise value error
+    # TODO negative value scaling -> raise value error
 
     def test_init_prefab_moon(self):
         """

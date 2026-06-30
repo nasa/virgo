@@ -254,6 +254,7 @@ class LabelSchema(BaseModel):
         return data
 
 class ActorBaseSchema(BaseModel):
+    dimensions: List[float] = None
     scale: float = 1.0
     opacity: float = 1.0
     pos: Vec3 = [0.0, 0.0, 0.0]
@@ -285,7 +286,15 @@ class ActorBaseSchema(BaseModel):
         if any(not (0.0 <= c <= 1.0) for c in v):
             raise ValueError("an actor's color values must be between 0.0 and 1.0")
         return v
-
+    
+    @field_validator("dimensions")
+    @classmethod
+    def validate_actor_dimensions(cls, v):
+        if v is None:
+            return v
+        if any(not (0.0 <= c) for c in v):
+            raise ValueError("dimensions need to be greater than 0.0")
+        return v
 
 
 class DataAliasSchema(BaseModel):

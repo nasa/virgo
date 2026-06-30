@@ -159,7 +159,7 @@ class VisualizableTestCase(unittest.TestCase):
 
         :param actors: A single vtkActor or a list of vtkActors to visualize.
         :param show_origin: Boolean for showing vtkAxes at origin
-        :param ool: Origin Axes Length (x, y, z) values
+        :param oal: Origin Axes Length (x, y, z) values
         :param show_grid: Boolean for showing 3D grid with actor(s)
 
         When visualization is enabled, a render window will pop up and

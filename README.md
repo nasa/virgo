@@ -379,29 +379,35 @@ data_source: # A dictionary which holds all data source definitions. Currently
       group: satellite            #   'satellite' comes from log_satellite.csv
       var: dyn.satellite.vel[0-2] # Name of velocity columns in csv file.
 
-actors:     # The dictionary which holds all actors in the scene. The
-            #   dictionary keys are the actor names. A single actor
-            #   'my_actor' is shown here, and all fields under this indented
-            #   block apply to all actors defined in your scene
-  my_actor: # User-chosen name for actor which acts as the key for
-            #   the individual actor sub-dict, defined below
-    mesh:   # Required 3D mesh information. This is either a VIRGO supported
-            #   prefab mesh or a path to an *.obj or *.stl file. Ex:
-            #   VIRGO_PREFAB:sphere
-    scale:  # Optional float representing scale applied to mesh equally in
-            #   x,y,z. Defaults to 1.0
-    pos:    # Optional list of 3 floats defining the position offset of
-            #   the mesh within the node this actor is contained within
-            #   This is applied before any rotation from ypr: and defaults
-            #   to [0, 0, 0]
-    ypr:    # Optional list of 3 floats defining the yaw-pitch-roll offset
-            #   in degrees of the mesh within the node local origin this
-            #   actor is associated with. This list is a Z,Y,X ordered
-            #   intrinsic Euler rotation. This is applied after any offset
-            #   from pos: and defaults to [0, 0, 0]
-    color:  # Optional list of 3 floats between 0.0-1.0 defining the
-            #   [red, green, blue] values of the color this actor should be
-            #   TODO: Figure out out this works with textured meshes
+actors:         # The dictionary which holds all actors in the scene. The
+                #   dictionary keys are the actor names. A single actor
+                #   'my_actor' is shown here, and all fields under this indented
+                #   block apply to all actors defined in your scene
+  my_actor:     # User-chosen name for actor which acts as the key for
+                #   the individual actor sub-dict, defined below
+    mesh:       # Required 3D mesh information. This is either a VIRGO supported
+                #   prefab mesh or a path to an *.obj or *.stl file. Ex:
+                #   VIRGO_PREFAB:sphere
+    dimensions: # Optional list of floats defining the dimensions of certain prefab actors.
+                #   For VIRGO_PREFAB:cube this defines the [x, y, z] lengths.
+                #   For VIRGO_PREFAB:cone | cylinder this defines [height, radius].
+                #   For VIRGO_PREFAB:arrow this defines [tip_length, tip_radius, shaft_radius].
+                #   For all other actors this field is not allowed.
+    scale:      # Optional float representing scale applied to mesh equally in
+                #   x,y,z directions. Applied after dimensions: as applicable per given mesh. 
+                #   Defaults to 1.0.
+    pos:        # Optional list of 3 floats defining the position offset of
+                #   the mesh within the node this actor is contained within
+                #   This is applied before any rotation from ypr: and defaults
+                #   to [0, 0, 0]
+    ypr:        # Optional list of 3 floats defining the yaw-pitch-roll offset
+                #   in degrees of the mesh within the node local origin this
+                #   actor is associated with. This list is a Z,Y,X ordered
+                #   intrinsic Euler rotation. This is applied after any offset
+                #   from pos: and defaults to [0, 0, 0]
+    color:      # Optional list of 3 floats between 0.0-1.0 defining the
+                #   [red, green, blue] values of the color this actor should be
+                #   TODO: Figure out out this works with textured meshes
     pickable: 1  # Optional integer 1 or 0 (true or false) for defining if
                  #  this actor can be picked with right-mouse-click. Defaults
                  #  to 1/true

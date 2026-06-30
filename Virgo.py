@@ -1021,7 +1021,7 @@ class VirgoControlCenter:
             self.go_first_person()
         else:
             self.go_trackball()
-
+        
     def go_trackball(self):
         """
         Switch the active camera to trackball mode
@@ -1030,6 +1030,7 @@ class VirgoControlCenter:
         if active_cam == None:
             print("ERROR: Cannot go to first person interactor mode, no active camera!")
             return
+        
         self.interactor.SetInteractorStyle(self.trackball_style)
         active_cam.set_interactor_mode('TB')
         active_cam_parent = active_cam.get_parent()
@@ -2169,11 +2170,14 @@ class VirgoScene:
         offset_pos=[0.0, 0.0, 0.0]
         offset_ypr=[0.0, 0.0, 0.0]
         scale = 1.0
+        dimensions=None
         opacity = 1.0
         if 'pos' in actor_scene_dict:
             offset_pos=actor_scene_dict['pos']
         if 'ypr' in actor_scene_dict:
             offset_ypr=actor_scene_dict['ypr']
+        if 'dimensions' in actor_scene_dict:
+            dimensions=actor_scene_dict['dimensions']
         if 'scale' in actor_scene_dict:
             scale=actor_scene_dict['scale']
         if 'opacity' in actor_scene_dict:
@@ -2186,13 +2190,14 @@ class VirgoScene:
             offset_pos=offset_pos,
             offset_ypr=offset_ypr,
             name=actor_name,
+            dimensions=dimensions,
+            scale=scale,
             fontsize=self.fs
             )
         # TODO: create SceneNode here and add actor to it!
         if self.verbosity > 0:
             print(f"Initializing {actor_name} ...")
 
-        actor.SetScale(scale)
         actor.GetProperty().SetOpacity(opacity)
         if 'color' in actor_scene_dict and actor_scene_dict['color'] != None:
             actor.GetProperty().SetColor(actor_scene_dict['color'])

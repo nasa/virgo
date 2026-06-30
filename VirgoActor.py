@@ -41,7 +41,7 @@ class VirgoActor(vtkActor):
     Wrapper around VTK actor to facilitate the Trick Logged data
     and other capabilities
     """
-    def __init__(self, mesh, offset_pos=None, offset_ypr=None, name='No Name', fontsize=12):
+    def __init__(self, mesh, offset_pos=None, offset_ypr=None, name='No Name', dimensions=None, scale=1.0, fontsize=12):
         """
         Initialize this instance.
 
@@ -52,22 +52,32 @@ class VirgoActor(vtkActor):
         Parameters
         ----------
         mesh : str
-            3D representation of the actor in the scene, which is either 
+             3D representation of the actor in the scene, which is either 
              a path to an object file to load like .obj, .stl, or a supported
              VIRGO_PREFAB (TODO more info needed here)
-        offset_pos : list of 3 doubles
+        offset_pos : list of 3 floats
              X-Y-Z position to apply to the model on
              init. Used to adjust position of a model relative to the origin of
              of the model as provided by the CAD or VIRGO_PREFAB itself
-        offset_ypr : list of 3 doubles
+        offset_ypr : list of 3 floats
              Z-Y-X (Yaw-Pitch-Roll) Tait-Bryan rotation in degrees to apply to
              the model on init. Used to rotate a model into another frame
              immediately upon model creation. This rotation is performed after
              offset_pos is applied.
         name : str
-            Name given to this actor
+             Name given to this actor
+        dimensions : list of 2 or 3 floats
+             Optional list of floats defining the dimensions of certain prefab actors.
+             For VIRGO_PREFAB:cube this defines the [x, y, z] lengths.
+             For VIRGO_PREFAB:cone | cylinder this defines [height, radius].
+             For VIRGO_PREFAB:arrow this defines [tip_length, tip_radius, shaft_radius].
+             For all other actors this field is not allowed.
+        scale : float
+             Optional float representing scale applied to mesh equally in
+             x,y,z directions. Applied after dimensions: as applicable per given mesh. 
+             Defaults to 1.0.
         fontsize : int
-            Default fontsize for text associated with this actor
+             Default fontsize for text associated with this actor
         """
         self.backface_culling_enabled = False
         # Call the parent class constructor to ensure proper initialization
@@ -75,12 +85,17 @@ class VirgoActor(vtkActor):
 
         self.source = None  # If using a vtk*Source, it's stored here for reference
         self.mesh  = self.expand_env_vars(mesh)
-        self.name = name            # Name of this actor
+        self.name = name                  # Name of this actor
+        self._user_scale = scale
+        self.dimensions = dimensions      # Dimensions of the action
+        self.verify()
         self._map_mesh(self.mesh)
         self.num_vertices = None
         self.offset_pos  = offset_pos     # Initialization position offset to apply to to actor
         self.offset_ypr  = offset_ypr     # Initialization pitch/yaw/roll to apply to to actor
         self.axes_label_render_threshold = 50    # min distance axes labels can be seen
+        
+        
         
         self.fs = fontsize          # Font size for text associated with this actor
         #import pdb; pdb.set_trace()
@@ -152,11 +167,23 @@ class VirgoActor(vtkActor):
           self.RotateX(self.offset_ypr[2])
         if self.backface_culling_enabled:
             self.GetProperty().BackfaceCullingOn()
-        self.verify()
+        if self._user_scale:
+          # Apply scale uniformly. 
+            self.SetScale(self._user_scale, self._user_scale, self._user_scale)
 
     def verify(self):
-        # TO BE FILLED OUT
-        pass
+        if self._user_scale:
+            # Only handling positive scaling (no inversions)
+            if (not isinstance(self._user_scale, (int, float, np.floating, np.integer)) or self._user_scale <= 0) :
+                raise TypeError(f"Actor {self.name}'s scale must be a positive real number.")
+        if self.dimensions:
+            # Only accepting 2 or 3 values in dimensions
+            if len(self.dimensions) > 3 or len(self.dimensions) < 2:
+                raise ValueError(f"Actor {self.name}'s dimensions must contain either 2 or 3 values, got {str(len(self.dimensions))} values")
+            # Only accepting positive real numbers for dimensions
+            if any(d <= 0 for d in self.dimensions) and len(self.dimensions) > 1:
+                raise ValueError(f"Actor {self.name}'s dimensions must be greater than 0.0, got {self.dimensions}")
+
 
     def get_bounding_box(self):
         '''
@@ -339,15 +366,17 @@ class VirgoActor(vtkActor):
             self.RotateZ(180)
         elif 'VIRGO_PREFAB:cube' in str(mesh):
             self.source = vtkCubeSource()
-            self.source.SetXLength(1.0)
-            self.source.SetYLength(1.0)
-            self.source.SetZLength(1.0)
+            dims = self.dimensions if self.dimensions else [1.0, 1.0, 1.0]
+            self.source.SetXLength(dims[0])
+            self.source.SetYLength(dims[1])
+            self.source.SetZLength(dims[2])
             # Create a mapper to map the cube's geometry to graphics primitives
             mapper.SetInputConnection(self.source.GetOutputPort())
         elif 'VIRGO_PREFAB:cylinder' in str(mesh):
             self.source = vtkCylinderSource()
-            self.source.SetHeight(1.0)         # Set height to 3 units
-            self.source.SetRadius(0.5)         # Set radius to 1 unit
+            dims = self.dimensions if self.dimensions else [1.0, 0.5]
+            self.source.SetHeight(dims[0])         # Set height to 3 units
+            self.source.SetRadius(dims[1])         # Set radius to 1 unit
             self.source.SetCenter(0.0, 0.0, 0.0) # 
             self.source.SetResolution(50)      # Use 50 facets for a smooth cylinder
             self.source.SetCapping(True)       # Ensure the bases are capped
@@ -355,27 +384,31 @@ class VirgoActor(vtkActor):
             mapper.SetInputConnection(self.source.GetOutputPort())
         elif'VIRGO_PREFAB:cone-32' in str(mesh):
             self.source = vtkConeSource()
-            height = 1.0
+            dims = self.dimensions if self.dimensions else [1.0, 0.5]
+            height = dims[0]
             self.source.SetHeight(height)
-            self.source.SetRadius(0.5)
+            self.source.SetRadius(dims[1])
             self.source.SetResolution(32)
             self.source.SetDirection(-1, 0, 0)  # tip pointed along -X
             self.source.SetCenter(height/2, 0.0, 0.0)  # tip at (0,0,0)
             mapper.SetInputConnection(self.source.GetOutputPort())
         elif 'VIRGO_PREFAB:cone' in str(mesh) or  'VIRGO_PREFAB:cone-16' in str(mesh):
             self.source = vtkConeSource()
-            height = 1.0
+            dims = self.dimensions if self.dimensions else [1.0, 0.5]
+            height = dims[0]
             self.source.SetHeight(height)
-            self.source.SetRadius(0.5)
+            self.source.SetRadius(dims[1])
             self.source.SetResolution(16)
             self.source.SetDirection(-1, 0, 0)  # tip pointed along -X
             self.source.SetCenter(height/2, 0.0, 0.0)  # tip at (0,0,0)
             mapper.SetInputConnection(self.source.GetOutputPort())
         elif 'VIRGO_PREFAB:arrow' in str(mesh):
             self.source = vtkArrowSource()
-            self.source.SetTipLength(0.35)   # Fraction of total length
-            self.source.SetTipRadius(0.2)    # Radius of the cone
-            self.source.SetShaftRadius(0.03) # Radius of the cylinder
+            # dims = [TipLength, TipRadius, ShaftRadius]
+            dims = self.dimensions if self.dimensions else [0.35, 0.2, 0.03]
+            self.source.SetTipLength(dims[0])   # Fraction of total length
+            self.source.SetTipRadius(dims[1])   # Radius of the cone
+            self.source.SetShaftRadius(dims[2]) # Radius of the cylinder
             self.source.Update()
             mapper.SetInputConnection(self.source.GetOutputPort())
         elif '.obj' in str(mesh):

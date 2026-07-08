@@ -1,6 +1,7 @@
 import os, sys, shutil, inspect
 import unittest
 import pdb
+from numpy.testing import assert_allclose
 
 # Add path to virgo module
 thisFileDir = os.path.dirname(os.path.abspath(inspect.getsourcefile(lambda:0)))
@@ -106,20 +107,99 @@ class VirgoActorTestCase(VisualizableTestCase):
             self.assertAlmostEqual(a, b)
         #self.vis(actors=self.instance, show_origin=1, show_grid=1)
     
+    # VIRGO_PREFAB_cube tests, dimensions and scale
     def test_init_with_dimensions_cube(self):
         """
         Test the VIRGO_PREFAB:cube option with custom dimensions - regular case
         """
         self.instance = VirgoActor(mesh="VIRGO_PREFAB:cube", dimensions=[3.0, 4.0, 5.0])
         #self.vis(actors=self.instance, show_origin=1, show_grid=1)
+        self.instance.initialize()
+        self.assertEqual(self.instance.dimensions, [3.0, 4.0, 5.0])
+        self.assertEqual(self.instance.source.GetXLength(), 3.0)
+        self.assertEqual(self.instance.source.GetYLength(), 4.0)
+        self.assertEqual(self.instance.source.GetZLength(), 5.0)
     
     def test_init_with_zero_dimensions_cube(self):
         """
-        Test the VIRGO_PREFAB:cube option with custom dimensions - zero error case
+        Test the VIRGO_PREFAB:cube option with custom dimensions - error case
+        """
+        with self.assertRaises(ValueError) as error_info:
+            self.instance = VirgoActor(mesh="VIRGO_PREFAB:cube", dimensions=[0,0,0])
+            #self.vis(actors=self.instance, show_origin=1, show_grid=1)
+        self.assertIn("dimensions must be greater than 0.0, got", str(error_info.exception))
+
+    def test_init_less_dimensions_cube(self):
+        """
+        Test the VIRGO_PREFAB:cube option with less than required dimensions - error case
+        """
+        with self.assertRaises(ValueError) as error_info:
+            self.instance = VirgoActor(mesh="VIRGO_PREFAB:cube", dimensions=[4.0])
+            #self.vis(actors=self.instance, show_origin=1, show_grid=1)
+        self.assertIn("must contain either 2 or 3 values, got 1 values", str(error_info.exception))
+
+    def test_init_more_dimensions_cube(self):
+        """
+        Test the VIRGO_PREFAB:cube option with more than required dimensions - error case
+        """
+        with self.assertRaises(ValueError) as error_info:
+            self.instance = VirgoActor(mesh="VIRGO_PREFAB:cube", dimensions=[3.1, 4.1, 5.9, 2.6])
+            #self.vis(actors=self.instance, show_origin=1, show_grid=1)
+        self.assertIn("must contain either 2 or 3 values, got 4 values", str(error_info.exception))
+
+    def test_init_default_dimensions_cube(self):
+        """
+        Test the VIRGO_PREFAB:cube option with no dimensions, fallback to default
+        """
+        self.instance = VirgoActor(mesh="VIRGO_PREFAB:cube")
+        self.instance.initialize()
+
+        self.assertEqual(self.instance.source.GetXLength(), 1.0)
+        self.assertEqual(self.instance.source.GetYLength(), 1.0)
+        self.assertEqual(self.instance.source.GetZLength(), 1.0)
+        
+    def test_init_with_neg_dimensions_cube(self):
+        """
+        Test the VIRGO_PREFAB:cube option with a negative dimension - expecting an error
+        """
+        with self.assertRaises(ValueError) as error_info:
+            self.instance = VirgoActor(mesh="VIRGO_PREFAB:cube", dimensions=[-3, 3, 3])
+            self.vis(actors=self.instance, show_origin=1, show_grid=1)
+        self.assertIn("dimensions must be greater than 0.0,", str(error_info.exception))
+
+    def test_init_with_dimensions_cylinder(self):
+        """
+        Test the VIRGO_PREFAB:cylinder option with custom dimensions - regular case
+        """
+        self.instance = VirgoActor(mesh="VIRGO_PREFAB:cylinder", dimensions=[5, 1])
+        #self.vis(actors=self.instance, show_origin=1, show_grid=1)
+        self.instance.initialize()
+        self.assertEqual(self.instance.GetScale(), (1.0, 1.0, 1.0))
+        #self.vis(actors=self.instance, show_origin=1, show_grid=1)
+        bb = self.instance.GetBounds()
+        # Z radius is at midpoint of line between vertices
+        assert_allclose(bb, [-1.0, 1.0, -2.5, 2.5, -0.9980267286300659, 0.9980267286300659])
+
+    def test_init_with_dimensions_and_scale_cylinder(self):
+        """
+        Test the VIRGO_PREFAB:cylinder option with custom dimensions - regular case
+        """
+        self.instance = VirgoActor(mesh="VIRGO_PREFAB:cylinder", dimensions=[5.0, 1.0], scale=2.0)
+        #self.vis(actors=self.instance, show_origin=1, show_grid=1)
+        self.instance.initialize()
+        self.assertEqual(self.instance.GetScale(), (2.0, 2.0, 2.0))
+        #self.vis(actors=self.instance, show_origin=1, show_grid=1)
+        bb = self.instance.GetBounds()
+        # Z radius is at midpoint of line between vertices
+        assert_allclose(bb, [-2.0, 2.0, -5.0, 5.0, -1.99605345726, 1.99605345726])
+
+    def test_init_with_zero_dimensions_cylinder(self):
+        """
+        Test the VIRGO_PREFAB:cylinder option with custom dimensions - zero error case
         """
         with self.assertRaises(ValueError):
-            self.instance = VirgoActor(mesh="VIRGO_PREFAB:cube", dimensions=[0,0,0])
-            self.vis(actors=self.instance, show_origin=1, show_grid=1)
+            self.instance = VirgoActor(mesh="VIRGO_PREFAB:cylinder", dimensions=[0,0])
+            #self.vis(actors=self.instance, show_origin=1, show_grid=1)
 
     # Holding off on testing to finalize location for error checking, whether within VirgoActor.py or just higher up.
     # TODO negative dimension cube -> raise value error
@@ -134,15 +214,30 @@ class VirgoActorTestCase(VisualizableTestCase):
         self.assertEqual(self.instance._user_scale, 0.5)
         self.assertEqual(self.instance.GetScale(), (0.5, 0.5, 0.5))
 
-    # TODO zero value scaling -> raise value error
-    # TODO negative value scaling -> raise value error
-
+    def test_init_zero_scale_cube(self):
+        """
+        Test the VIRGO_PREFAB:cube option with zero scale - expecting an error
+        """
+        with self.assertRaises(RuntimeError) as error_info:
+            self.instance = VirgoActor(mesh="VIRGO_PREFAB:cube", scale=0.0)
+            #self.vis(actors=self.instance, show_origin=1, show_grid=1)
+        self.assertIn("scale must be a positive real number", str(error_info.exception))
+        
+    def test_init_negative_scale_cube(self):
+        """
+        Test the VIRGO_PREFAB:cube option with negative scaling - expecting error
+        """
+        with self.assertRaises(RuntimeError) as error_info:
+            self.instance = VirgoActor(mesh="VIRGO_PREFAB:cube", scale=-5.0)
+        self.assertIn("scale must be a positive real number", str(error_info.exception))
+   
     def test_init_prefab_moon(self):
         """
         Test the VIRGO_PREFAB:moon option
         """
         self.instance = VirgoActor(mesh="VIRGO_PREFAB:moon")
         #self.vis(actors=self.instance, show_origin=1, oal=[3e6, 3e6, 3e6])
+        self.assertEqual(self.instance.scale, (1.0, 1.0, 0.9987917841320982))
         # TODO assertions go here!
 
     def test_init_prefab_earth(self):

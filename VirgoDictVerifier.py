@@ -292,8 +292,10 @@ class ActorBaseSchema(BaseModel):
     def validate_actor_dimensions(cls, v):
         if v is None:
             return v
+        if len(v) < 2 or len(v) > 3:
+            raise ValueError(f"dimensions must contain 2 or 3 values, got {len(v)}")
         if any(not (0.0 <= c) for c in v):
-            raise ValueError("dimensions need to be greater than 0.0")
+            raise ValueError(f"dimensions need to be greater than 0.0, got {v}")
         return v
 
 

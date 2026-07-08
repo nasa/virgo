@@ -172,10 +172,10 @@ class VirgoActor(vtkActor):
             self.SetScale(self._user_scale, self._user_scale, self._user_scale)
 
     def verify(self):
-        if self._user_scale:
+        if self._user_scale is not None:
             # Only handling positive scaling (no inversions)
             if (not isinstance(self._user_scale, (int, float, np.floating, np.integer)) or self._user_scale <= 0) :
-                raise TypeError(f"Actor {self.name}'s scale must be a positive real number.")
+                raise RuntimeError(f"Actor {self.name}'s scale must be a positive real number.")
         if self.dimensions:
             # Only accepting 2 or 3 values in dimensions
             if len(self.dimensions) > 3 or len(self.dimensions) < 2:
@@ -366,17 +366,19 @@ class VirgoActor(vtkActor):
             self.RotateZ(180)
         elif 'VIRGO_PREFAB:cube' in str(mesh):
             self.source = vtkCubeSource()
-            dims = self.dimensions if self.dimensions else [1.0, 1.0, 1.0]
-            self.source.SetXLength(dims[0])
-            self.source.SetYLength(dims[1])
-            self.source.SetZLength(dims[2])
+            if self.dimensions is None:
+                self.dimensions = [1.0, 1.0, 1.0]
+            self.source.SetXLength(self.dimensions[0])
+            self.source.SetYLength(self.dimensions[1])
+            self.source.SetZLength(self.dimensions[2])
             # Create a mapper to map the cube's geometry to graphics primitives
             mapper.SetInputConnection(self.source.GetOutputPort())
         elif 'VIRGO_PREFAB:cylinder' in str(mesh):
             self.source = vtkCylinderSource()
-            dims = self.dimensions if self.dimensions else [1.0, 0.5]
-            self.source.SetHeight(dims[0])         # Set height to 3 units
-            self.source.SetRadius(dims[1])         # Set radius to 1 unit
+            if self.dimensions is None:
+                self.dimensions = [1.0, 0.5]
+            self.source.SetHeight(self.dimensions[0])         # Set height to 3 units
+            self.source.SetRadius(self.dimensions[1])         # Set radius to 1 unit
             self.source.SetCenter(0.0, 0.0, 0.0) # 
             self.source.SetResolution(50)      # Use 50 facets for a smooth cylinder
             self.source.SetCapping(True)       # Ensure the bases are capped
@@ -384,31 +386,34 @@ class VirgoActor(vtkActor):
             mapper.SetInputConnection(self.source.GetOutputPort())
         elif'VIRGO_PREFAB:cone-32' in str(mesh):
             self.source = vtkConeSource()
-            dims = self.dimensions if self.dimensions else [1.0, 0.5]
-            height = dims[0]
+            if self.dimensions is None:
+                self.dimensions = [1.0, 0.5]
+            height = self.dimensions[0]
             self.source.SetHeight(height)
-            self.source.SetRadius(dims[1])
+            self.source.SetRadius(self.dimensions[1])
             self.source.SetResolution(32)
             self.source.SetDirection(-1, 0, 0)  # tip pointed along -X
             self.source.SetCenter(height/2, 0.0, 0.0)  # tip at (0,0,0)
             mapper.SetInputConnection(self.source.GetOutputPort())
         elif 'VIRGO_PREFAB:cone' in str(mesh) or  'VIRGO_PREFAB:cone-16' in str(mesh):
             self.source = vtkConeSource()
-            dims = self.dimensions if self.dimensions else [1.0, 0.5]
-            height = dims[0]
+            if self.dimensions is None:
+                self.dimensions = [1.0, 0.5]
+            height = self.dimensions[0]
             self.source.SetHeight(height)
-            self.source.SetRadius(dims[1])
+            self.source.SetRadius(self.dimensions[1])
             self.source.SetResolution(16)
             self.source.SetDirection(-1, 0, 0)  # tip pointed along -X
             self.source.SetCenter(height/2, 0.0, 0.0)  # tip at (0,0,0)
             mapper.SetInputConnection(self.source.GetOutputPort())
         elif 'VIRGO_PREFAB:arrow' in str(mesh):
             self.source = vtkArrowSource()
+            if self.dimensions is None:
+                self.dimensions = [0.35, 0.2, 0.03]
             # dims = [TipLength, TipRadius, ShaftRadius]
-            dims = self.dimensions if self.dimensions else [0.35, 0.2, 0.03]
-            self.source.SetTipLength(dims[0])   # Fraction of total length
-            self.source.SetTipRadius(dims[1])   # Radius of the cone
-            self.source.SetShaftRadius(dims[2]) # Radius of the cylinder
+            self.source.SetTipLength(self.dimensions[0])   # Fraction of total length
+            self.source.SetTipRadius(self.dimensions[1])   # Radius of the cone
+            self.source.SetShaftRadius(self.dimensions[2]) # Radius of the cylinder
             self.source.Update()
             mapper.SetInputConnection(self.source.GetOutputPort())
         elif '.obj' in str(mesh):
@@ -438,7 +443,6 @@ class VirgoActor(vtkActor):
         self._axes = axes
     def get_num_vertices(self):
         return self.num_vertices
-
 
     def create_wgs84_ellipsoid( self, n_lat=360, n_lon=720,
         a=6378137.0, b=6356752.314245):

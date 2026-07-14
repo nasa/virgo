@@ -174,7 +174,7 @@ class MyCustomControlCenter(VirgoControlCenter):
     a custom class definition: MyCustomHud
     """
     def __init__(self, renderers, render_window, interactor, scene,
-                world_time=0.0, images_dir=None, koviz_port=64053):
+                world_time=0.0, images_dir=None, koviz_port=64054):
         super().__init__(renderers=renderers, render_window=render_window,
                          interactor=interactor, scene=scene)
 

@@ -88,7 +88,7 @@ class VirgoControlCenter:
     """
     # The order of these are important, must list them back to front
     def __init__(self, renderers, render_window, interactor, scene,
-                 world_time=0.0, images_dir=None, koviz_port=64053):
+                 world_time=0.0, images_dir=None, koviz_port=64054):
         """
         Initializer of the VirgoControlCenter
         """
@@ -2000,7 +2000,7 @@ class VirgoScene:
 
     def __init__(self, scene, verbosity=1, headless=False, stop_time=None,
                  images_dir="/tmp/", video_filename="/tmp/virgo.mp4",
-                 splash=True, scene_yaml_path=None, koviz_port=64053,
+                 splash=True, scene_yaml_path=None, koviz_port=64054,
                  controller_class: Optional[Type[VirgoControlCenter]] = None,
                  controller_kwargs: Optional[Dict[str, Any]] = None,
                  interactor_class: Optional[Type[vtkInteractorStyle]] = None,

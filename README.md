@@ -298,7 +298,7 @@ Details TBD
 
 ## Koviz Time Sync Support
 
-VIRGO can connect directly to an instance of [koviz](https://github.com/nasa/koviz) running on the same machine operating on the same data directory which can provide deeper introspection to the user for variables that don't display well in 3D space. The default port for this connection is currently 64053 and both VIRGO and `koviz` are listening for a connection on this port. When connected, time will be shared across applications and you will see information about the connection and port in the top left section of the default VIRGO HUD. Here's an example of what it looks like when a connection is made:
+VIRGO can connect directly to an instance of [koviz](https://github.com/nasa/koviz) running on the same machine operating on the same data directory which can provide deeper introspection to the user for variables that don't display well in 3D space. The default port for this connection is currently 64054 and both VIRGO and `koviz` are listening for a connection on this port. When connected, time will be shared across applications and you will see information about the connection and port in the top left section of the default VIRGO HUD. Here's an example of what it looks like when a connection is made:
 
 ![virgo_and_koviz](images/doc/virgo_and_koviz.mp4)
 

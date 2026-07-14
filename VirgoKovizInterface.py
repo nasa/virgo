@@ -19,7 +19,7 @@ class KovizThread(threading.Thread):
     HOST = '127.0.0.1'
     MAX_MSG_SIZE = 1024
 
-    def __init__(self, event_queue: queue.Queue, port=64053):
+    def __init__(self, event_queue: queue.Queue, port=64054):
         super().__init__(daemon=True)
         self._q = event_queue
         self._lock = threading.Lock()

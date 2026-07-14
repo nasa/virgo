@@ -14,7 +14,7 @@ class VirgoDataPlayback(VirgoScene):
     """
     def __init__(self, run_dir, scene, verbosity=1, headless=False,
                  images_dir="/tmp/", video_filename="/tmp/virgo.mp4",
-                 splash=True, scene_yaml_path=None, koviz_port=64053):
+                 splash=True, scene_yaml_path=None, koviz_port=64054):
         self.run_dir = run_dir
         self.vdl = None
         super().__init__(scene=scene, verbosity=verbosity, headless=headless,

@@ -27,7 +27,8 @@ class VirgoControlCenterInitTestCase(unittest.TestCase):
         self.interactor = vtkRenderWindowInteractor()
         self.scene = {}
         self.scene['actors']  = {}
-        self.scene['actors']['test_actor'] = {'mesh': 'VIRGO_PREFAB:cube'}
+        self.scene['actors']['cube_actor'] = {'mesh': 'VIRGO_PREFAB:cube'}
+        self.scene['actors']['sphere_actor'] = {'mesh': 'VIRGO_PREFAB:sphere'}
         self.scene['data_source']  = {}
         self.scene['data_source']['trickpy']  = {}
         self.scene['data_source']['trickpy']['time']  = {}
@@ -51,12 +52,52 @@ class VirgoControlCenterInitTestCase(unittest.TestCase):
                                            scene=self.scene)
 
         self.post_init_nominal_assertions(self.instance)
-
-        # A controller needs more setup before initialize() can be called,
-        # see the bottom of VirgoScene.initialize_nodes() where many things
-        # are passed through into the controller
+        # Can't do this yet, see create_test_nodes docstring
         #self.instance.initialize()
         #self.assertNotEqual(self.instance.nodes, {})
 
 
+    def create_test_nodes(self):
+        """
+        A controller needs more setup before initialize() can be called,
+        see the bottom of VirgoScene.initialize_nodes() where many things
+        are passed through into the controller. This function will populate
+        self.nodes in a similar way to VirgoScene.initialize_nodes() without
+        actually calling that function. 
 
+        Returns: dictionary of nodes, similar to what VirgoScene.initialize()
+        nodes produces.
+
+        TODO: Figure out if we should be mocking VirgoScene content or
+        calling it directly here. -Jordan July 2026
+        """
+        nodes = {}
+        for name in ['cube_actor', 'sphere_actor']:
+            nodes[name] = VirgoSceneNode(name=name)
+            nodes[name].create_trail()
+        return nodes
+
+    def test_enable_trails(self):
+        # 1. Setup
+        self.instance = VirgoControlCenter(renderers=self.renderers,
+                                           render_window=self.render_window,
+                                           interactor=self.interactor,
+                                           scene=self.scene)
+        self.instance.nodes = self.create_test_nodes()
+        self.instance.enable_trails()
+        # Assert that all actor trails are on
+        for n in self.instance.nodes:
+            self.assertTrue(self.instance.nodes[n].is_trail_visible())
+    
+
+    def test_disable_trails(self):
+        # 1. Setup
+        self.instance = VirgoControlCenter(renderers=self.renderers, 
+                                           render_window=self.render_window, 
+                                           interactor=self.interactor, 
+                                           scene=self.scene)
+        self.instance.nodes = self.create_test_nodes()
+        self.instance.disable_trails()
+        # Assert that all actor trails are off
+        for n in self.instance.nodes:
+            self.assertFalse(self.instance.nodes[n].is_trail_visible())

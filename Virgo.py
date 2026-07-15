@@ -114,7 +114,6 @@ class VirgoControlCenter:
             self.cameras[r] = VirgoCamera(name=r, frustum_when='never')
             self.cameras[r].set_vtk_camera(renderers[r].GetActiveCamera())
             self.cameras[r].store_clipping_range()
-        #import pdb; pdb.set_trace()
         self.interactor = interactor
         self.cam_sync_observer_tag = None
         # These interactor above this line will use one of the two styles
@@ -442,7 +441,6 @@ class VirgoControlCenter:
     def render(self, time_each_layer=False):
         if time_each_layer == False:
             self.render_window.Render()
-            #import pdb; pdb.set_trace()
             return
         time_render_layers(self.render_window, self.renderers)
 
@@ -488,7 +486,6 @@ class VirgoControlCenter:
         world_pos = np.array(node.get_world_position())
         distance = 0.0
         if node.is_celestial_body:
-            #import pdb; pdb.set_trace()
             distance = np.linalg.norm(camera_pos - world_pos)
             # Assumption: celestial bodies are close to spherical,
             # divide the longest distance by 2.0 to get radius
@@ -592,7 +589,6 @@ class VirgoControlCenter:
             this_cam_pos = ufc[c].get_position()
             fa = ufc[c].get_frustum_assembly()
             distance = np.linalg.norm(camera_pos - this_cam_pos)
-            #import pdb; pdb.set_trace()
             if distance > self.foreground_far_boundary:
                 self.renderers['foreground'].RemoveActor(fa)
             else:
@@ -948,6 +944,20 @@ class VirgoControlCenter:
             else:
                 self.nodes[n].show_trail()
 
+     # Enable Trails Function
+    @virgo_console
+    def enable_trails(self):
+        """Turn on all node trails"""
+        for n in self.nodes:
+            self.nodes[n].show_trail()
+
+    # Disable Trails Function
+    @virgo_console
+    def disable_trails(self, node=None):
+        """Turn off all node trails"""
+        for n in self.nodes:
+            self.nodes[n].hide_trail()
+    
     @virgo_console
     def take_picture(self, filename=None):
         """Drop a .png of every pixel in the VIRGO window right now"""
@@ -997,7 +1007,6 @@ class VirgoControlCenter:
                 return('too many args to \'camera follow\', give one node name')
             if args[0] in self.nodes:
                 new_parent = self.nodes[args[0]]
-                #import pdb; pdb.set_trace()
                 ac.set_parent(new_parent)
                 self.set_interactor_styles_node(new_parent)
                 #ac.follow(self.nodes[args[0]])
@@ -1068,7 +1077,6 @@ class VirgoControlCenter:
         active_cam_parent = active_cam.get_parent()
         # If we're already following a node, free the camera
 
-        #import pdb; pdb.set_trace()
         if active_cam_parent:
             if self.picked_actor:
                 new_parent = self.nodes[self.picked_actor.name]
@@ -1242,7 +1250,6 @@ class VirgoControlCenter:
                     self.nodes[n].report()
 
     def switch_cameras(self, direction='next'):
-        #import pdb; pdb.set_trace()
         active_cam = self.get_active_camera()
         if active_cam == None:
             print("Unable to determine active camera, cannot switch!")
@@ -1267,7 +1274,6 @@ class VirgoControlCenter:
             new_idx = 0
         # Set the active camera to the camera associated with new_idx
         new_cam_name = cams_sorted_by_priority[new_idx].get_name()
-        #import pdb; pdb.set_trace()
         self.set_active_camera(cam_name=new_cam_name)
         self.update_cameras()
         self.sync_cameras(None, None)
@@ -1573,7 +1579,6 @@ class VirgoControlCenter:
         # Already using this camera, do nothing
         if active_cam and active_cam.name == cam_name:
             return
-        #import pdb; pdb.set_trace()
         if active_cam != None:
             active_cam.deactivate()
             old_vtk_cam = active_cam.get_vtk_camera()
@@ -1815,7 +1820,6 @@ class VirgoControlCenter:
             self.cameras[cam].sync_with_vtk_camera(active_vtk_cam)
             #self.cameras[cam].report()
         #print(f"====DONE WITH SYNC EVERYTHING TO  ACTIVE CAM {hex(id(active_vtk_cam))}=========")
-        #import pdb; pdb.set_trace()
 
     def position_sun_actor(self, obj, event):
         """
@@ -1914,7 +1918,7 @@ class VirgoControlCenter:
         passes.AddItem(shadows)
         # Add overlay and translucent passes, this is needed for text_actors
         # and actors with less than 1.0 opacity to render when more realisitic
-        # lighting is on
+        # lihting is on
         passes.AddItem(vtkTranslucentPass())
         passes.AddItem(vtkOverlayPass())
         seq.SetPasses(passes)
@@ -1987,6 +1991,7 @@ class VirgoControlCenter:
             self.sun_actor.SetVisibility(False)
 
         self.position_sun_actor(None, None)
+
 
 class VirgoScene:
     """
@@ -2066,7 +2071,6 @@ class VirgoScene:
                                            scene=self.scene,
                                            koviz_port=self.koviz_port,
                                              **controller_kwargs)
-
 
         self.initialized = False
 
@@ -2207,7 +2211,6 @@ class VirgoScene:
             actor.set_backface_culling(actor_scene_dict['backface_culling'])
 
         return actor
-
 
     def create_vector(self, vector_name, vector_scene_dict=None):
         """
@@ -2369,7 +2372,6 @@ class VirgoScene:
                                 _class=fncc)
             node.set_name(f)
             node.set_axes_pickable_on()
-
             pos=[0.0, 0.0, 0.0]
             ypr=[0.0, 0.0, 0.0]
             if 'pos' in self.scene['frames'][f]:
@@ -2507,7 +2509,6 @@ class VirgoScene:
         tmp_dir = tempfile.mkdtemp()
         while not finished:
           percent_complete = self.controller.world_time / stop_time * 100.0
-          #import pdb; pdb.set_trace()
           sys.stdout.write(f'\rGenerating frames in {tmp_dir}: {percent_complete:8.2f}%')
           sys.stdout.flush()  # Ensure it updates immediately
           self.controller.update()
@@ -2533,6 +2534,7 @@ class VirgoScene:
                    for i in range(frame_num)]
         imageio.mimsave(self.video_filename, frames, fps=self.controller.frame_rate)
         print(f"Done.")
+    
 
 
     def tear_down(self):

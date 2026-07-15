@@ -74,5 +74,21 @@ class VirgoSceneInitTestCase(unittest.TestCase):
         self.assertTrue(self.instance.controller.is_initialized())
         self.assertTrue(self.instance.initialized)
 
-
-
+    def test_add_node(self):
+        """
+        Add a node to a VirgoScene and ensure it was added by the
+        add_node function
+        """
+        # 1. Setup the scene and initialize it, self.scene has one node in it
+        self.instance = VirgoScene(scene=self.scene, headless=True)
+        # 2. Create a node to be added to the scene
+        addedNode, _ = self.instance.create_node(actor=None, actor_scene_dict={})
+        addedNode.name = "New_Node"
+        # 3. Add node to scene
+        self.instance.add_node(addedNode)
+        # 4. Initialize the scene
+        self.instance.initialize()
+        # 5. Test if the count of the scenes nodes increased
+        self.assertEqual(len(self.instance.nodes), 2)
+        self.assertIn(addedNode.name, self.instance.nodes)
+        self.assertIn(addedNode, self.instance.nodes.values())

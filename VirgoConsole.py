@@ -44,6 +44,7 @@ class VirgoConsole:
         self.command_buffer = ""      # Buffer as command is being typed in console
         self.full_line_history = []   # List of all full printed lines of cmd history
         self.stdin_history = []       # List of all entered commands in console
+        self.stdin_history_pointer= 0
         self.stdout_history = []      # List of all returned strings from console
         self.last_command = None      # Contains last entered command in console
         # Reduce oldest self.full_line_history line when reaching this num lines
@@ -171,6 +172,7 @@ class VirgoConsole:
                 self.last_command = self.command_buffer.strip()
                 self.full_line_history.append(f"{self.prompt} {self.command_buffer}")
                 self.stdin_history.append(f"{self.command_buffer}")
+                self.stdin_history_pointer = len(self.stdin_history)
                 
                 # Process the command, ret contains any text feedback from
                 # execution of the command
@@ -188,8 +190,14 @@ class VirgoConsole:
             self.command_buffer = self.command_buffer[:-1]
             
         elif key == "Up":
-            if self.stdin_history:
-                self.command_buffer = self.stdin_history[-1]
+            if self.stdin_history and self.stdin_history_pointer > 0:
+                self.stdin_history_pointer -= 1
+            self.command_buffer = self.get_current_command()
+
+        elif key == "Down":
+            if self.stdin_history_pointer < len(self.stdin_history):
+                self.stdin_history_pointer += 1
+            self.command_buffer = self.get_current_command()
 
         # Simple tab complete
         elif key == "Tab":
@@ -206,6 +214,13 @@ class VirgoConsole:
         
         # Abort the KeyPress so it doesn't trigger other shortcuts
         self._abort_event(obj, self.keypress_tag)
+
+    def get_current_command(self):
+        if self.stdin_history_pointer == len(self.stdin_history):
+            return ""
+        if self.stdin_history_pointer >= len(self.stdin_history):
+            return ""
+        return self.stdin_history[self.stdin_history_pointer]
 
     def process_command(self, cmd) -> str:
         """

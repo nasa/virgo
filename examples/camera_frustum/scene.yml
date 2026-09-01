@@ -1,0 +1,88 @@
+name: Camera Frustum Example
+description: |
+  Demonstrates camera frustum visualization as wireframe pyramids.
+
+  Press Up/Down to switch cameras. Each inactive camera draws its field of
+  view; the active camera hides its own frustum so it does not block the view.
+  Press 'h' for the full control list.
+
+background_color: [0.12, 0.12, 0.18]
+
+actors:
+  target:
+    mesh: VIRGO_PREFAB:cube
+    scale: 2.0
+    color: [0.25, 0.55, 0.85]
+    labels:
+      name:
+        text: Cube
+        pos: [0.0, 0.0, 1.5]
+        scale: 0.25
+        color: [0.8, 0.9, 1.0]
+  marker_a:
+    mesh: VIRGO_PREFAB:cube
+    scale: 0.4
+    color: [0.95, 0.35, 0.25]
+    pos: [-3.5, 2.0, 0.0]
+  marker_b:
+    mesh: VIRGO_PREFAB:cube
+    scale: 0.4
+    color: [0.25, 0.9, 0.45]
+    pos: [3.5, -2.0, 0.5]
+
+frames:
+  side_cam_frame:
+    pos: [-7.0, 0.0, 1.5]
+    axes:
+      when: toggled
+      style: line
+  top_cam_frame:
+    pos: [0.0, -7.0, 5.0]
+    axes:
+      when: toggled
+      style: line
+
+cameras:
+  # Overview trackball camera — start here to see the other cameras' frustums
+  default:
+    pos: [10.0, 10.0, 7.0]
+    focal_point: [0.0, 0.0, 0.0]
+    view_up: [0.0, 0.0, 1.0]
+    view_angle: 32
+    frustum_when: never
+    priority: 0
+
+  # Fixed camera on the -X side, looking at the target
+  side_view:
+    pos: [-7.0, 0.0, 1.5]
+    focal_point: [0.0, 0.0, 0.0]
+    view_up: [0.0, 0.0, 1.0]
+    view_angle: 40
+    static: 1
+    frustum_when: toggled
+    frustum_far_plane: 9.0
+    frustum_color: [1.0, 0.45, 0.85]  # pink
+    priority: 1
+
+  # Fixed camera from above, looking down at the target
+  top_view:
+    pos: [0.0, -7.0, 5.0]
+    focal_point: [0.0, 0.0, 0.0]
+    view_up: [0.0, 0.0, 1.0]
+    view_angle: 28
+    static: 1
+    frustum_when: toggled
+    frustum_far_plane: 11.0
+    frustum_color: [0.35, 1.0, 0.55]   # green
+    priority: 2
+
+  # Fixed camera view from close to where the default camera starts
+  third_camera_view:
+    pos: [10.0, 9.0, 7.0]
+    focal_point: [0.0, 0.0, 0.0]
+    view_up: [0.0, 0.0, 1.0]
+    view_angle: 32
+    frustum_when: toggled
+    frustum_far_plane: 14.0
+    frustum_color: [1.0, 0.9, 0.15]    # yellow
+    priority: 3

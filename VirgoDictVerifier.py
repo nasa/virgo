@@ -94,7 +94,11 @@ class CameraSchema(BaseModel):
     view_up: Optional[Vec3]  = [0.0, 0.0, 1.0]
     view_angle: Optional[float]  = 30
     static: Optional[bool]  = False
-    frustum_when: Optional[str] = 'toggled'
+    frustum_when: Optional[str] = 'never'
+    frustum_far_plane: Optional[float] = 1.0
+    frustum_color: Optional[RGBColor] = [1.0, 1.0, 1.0]
+    frustum_face_opacity: Optional[float] = 0.15
+    frustum_line_width: Optional[float] = 2.0
     priority: Optional[NonNegativeInt] = 0
     parent: Optional[str] = None
 
@@ -113,6 +117,7 @@ class CameraSchema(BaseModel):
         if value < 0.0:
             raise ValueError("view_angle must be > 0.0")
         return value
+
 
 class RendererSchema(BaseModel):
     near_clipping_plane_tolerance: Optional[float] = 1e-5
@@ -471,6 +476,16 @@ class SceneSchema(BaseModel):
         if any(not (0.0 <= c <= 1.0) for c in value):
             raise ValueError("RGB color values must be between 0.0 and 1.0")
         return value
+
+    @model_validator(mode="after")
+    def check_default_frustum(self):
+        if self.cameras and 'default' in self.cameras:
+            default_camera = self.cameras['default']
+            if default_camera.frustum_when != 'never':
+                raise ValueError("frustum_when is not supported for the default camera. "
+                                 "The default camera never displays a frustum."
+                )
+        return self
 
     @model_validator(mode="after")
     def check_playback_speed_supported(self):

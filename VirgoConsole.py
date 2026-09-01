@@ -32,7 +32,6 @@ class VirgoConsole:
         # TODO probably smarter to add a @hidden decorator and use that rather
         # than keeping a manual list here
         self.hidden_functions = ['stop', 'exit']
-        #import pdb; pdb.set_trace()
         # The actor which will be the top-half rectangle background of console
         self.console_bg = None
         # The actor which will contain all written text in the console
@@ -208,6 +207,7 @@ class VirgoConsole:
         elif len(char) == 1 and ord(char) >= 32 and ord(char) <= 126:
             # Add character to buffer
             self.command_buffer += char
+        
             
         self.update_text_display()
         self.interactor.Render()

@@ -4,15 +4,15 @@ from typing import Self
 
 from vtkmodules.vtkRenderingCore import (
   vtkActor,
-  vtkAssembly,
   vtkCamera,
   vtkPolyDataMapper,
 )
 from vtkmodules.vtkCommonDataModel import (
-  vtkPlanes,
+  vtkPolyData,
+  vtkCellArray,
 )
-from vtkmodules.vtkFiltersSources import (
-  vtkFrustumSource,
+from vtkmodules.vtkCommonCore import (
+    vtkPoints,
 )
 
 from VirgoNode import VirgoSceneNode
@@ -26,6 +26,9 @@ class VirgoCamera():
     frustum_when_modes = ['always', 'never', 'toggled']
     # Interactor modes: TB: trackball, FP: first-person
     interactor_modes = ['TB', 'FP']
+    # Flag to track visibility of state of all 'toggled' frustums
+    global_show_toggled_frustums = False
+
     def __init__(self, name, mode='TB',
                  position=[0.0, 0.0, 0.0],
                  focal_point=[1.0, 0.0, 0.0],
@@ -35,6 +38,8 @@ class VirgoCamera():
                  frustum_when='toggled',
                  frustum_far_plane=1.0,
                  frustum_color=[1.0, 0.9, 0.1],
+                 frustum_face_opacity=0.15,
+                 frustum_line_width=2.0,
                  priority=1,
                  parent=None): 
         self.active = False
@@ -56,24 +61,32 @@ class VirgoCamera():
         self.set_frustum_mode(frustum_when)
         self.set_frustum_far_plane(frustum_far_plane)
         self.frustum_color = frustum_color
+        self.frustum_face_opacity = frustum_face_opacity
+        self.frustum_line_width = frustum_line_width
         self.priority = priority
         self.parent = parent
         self.verbosity=1  # TODO make adjustable
         self.camera = self.create_vtk_camera()
 
-        # Frustum specific members - this is TBD forward work
-        self.frustum_source = None
-        self.frustum_mapper = None
-        self.frustum_actor = None
-        self.frustum_fill_mapper = None
-        self.frustum_fill_actor = None
-        self.planes = None
+        # Frustum specific members. self.frustum_assembly always gets a real
+        # default here (None) so it's never simply *missing* from the
+        # instance - only ever None (frustum disabled/not yet updated) or a
+        # real vtkAssembly. set_frustum_visible()/set_frustum_invisible()
+        # rely on that.
+        self.frustum = None
         self.frustum_assembly = None
-        if self.frustum_when != 'never':
-            # CURRENTLY DISABLED, SEE COMMENT IN 
-            # self.create_frustum_assembly()
-            pass
-            #self.frustum_assembly = self.create_frustum_assembly()
+        if self.frustum_when != 'never' and self.name != 'default':
+            self.frustum = VirgoCameraFrustum(
+                name=f"{self.name}-frustum", 
+                color=self.frustum_color, 
+                line_width=self.frustum_line_width, 
+                face_opacity=self.frustum_face_opacity
+            )
+            self.frustum_assembly = self.frustum.assembly
+            # Populate real geometry right away rather than waiting for the
+            # first external update_frustum() call, same as the rest of
+            # this class's construction-time initialization.
+            self.update_frustum(1.0, 1.0)
         self.stored_clipping_range = self.store_clipping_range()
 
         # Parameters describing position relative to a parent, if self.parent != None
@@ -85,19 +98,39 @@ class VirgoCamera():
 
         self.original_camera_params = self.store_camera_parameters()
 
+    def has_frustum(self):
+        return (self.frustum != None)
+
+    def disable_frustum(self):
+        self.frustum = None
+        self.frustum_assembly = None
+
     def update(self, window_width, window_height):
         """
         The main update loop for a camera. Position the camera to follow
-        and node (if it has a parent) and update it's frustum information
+        its parent node (if it has one) and update its frustum
+        visualization. Following the parent is NOT gated on whether the
+        frustum is enabled - those are two independent concerns.
         """
-        if self.frustum_when != 'never':
-            self.update_frustum(window_width=window_width, window_height=window_height)
         if self.parent:
             self.follow(node=self.parent)
-        # If this is the camera currently being viewed, turn the frustum off
-        # so we can see through it without anything blocking the view
+        if self.frustum_when == 'never':
+                    return
+        self.update_frustum(window_width=window_width, window_height=window_height)
+        # Hide the active camera's frustum so it does not block the view.
+        # Inactive cameras with frustum_when always/toggled stay visible.
         if self.is_active():
             self.set_frustum_invisible()
+        elif self.frustum_when in ('always'):
+            self.set_frustum_visible()
+        elif self.frustum_when in ('toggled'):
+            if VirgoCamera.global_show_toggled_frustums:
+                self.set_frustum_visible()
+            else:
+                self.set_frustum_invisible()
+
+    def get_frustum(self):
+        return self.frustum
 
     def get_frustum_assembly(self):
         return self.frustum_assembly
@@ -142,54 +175,6 @@ class VirgoCamera():
         class instance was created
         """
         self.set_camera_params(self.original_camera_params)
-
-    def create_frustum_assembly(self):
-        """
-        Create the pyramid volume representation of this camera's frustum
-        and return a vtkAssembly containing the actors comprising it
-
-        CURRENTLY DISABLED AND HERE'S WHY:
-
-        The core issue with frustum the way it's done here is that the points
-        comprising the frustum always have values near zero, making them
-        suck in the foreground (same limitation as vtkAxesActor). See the
-        output in the debug print at the bottom of update_frustum()
-    
-        Need another approach to draw the frustum, likely through a manual
-        approach, or by extracting the first 8 points from the frustum
-        source and building our own mesh from it.
-        """
-        self.frustum_source = vtkFrustumSource()
-        self.frustum_source.SetShowLines(True)
-
-        self.frustum_mapper = vtkPolyDataMapper()
-        self.frustum_mapper.SetInputConnection(self.frustum_source.GetOutputPort())
-
-        self.frustum_actor = vtkActor()
-        self.frustum_actor.SetMapper(self.frustum_mapper)
-        self.frustum_actor.GetProperty().SetRepresentationToWireframe()
-        self.frustum_actor.GetProperty().SetColor(self.frustum_color)   # bright yellow
-        self.frustum_actor.GetProperty().SetLineWidth(2.0)
-        self.frustum_actor.GetProperty().SetOpacity(0.85)
-        # Filled (semi-transparent) frustum faces
-        self.frustum_fill_mapper = vtkPolyDataMapper()
-        self.frustum_fill_mapper.SetInputConnection(self.frustum_source.GetOutputPort())
-        
-        self.frustum_fill_actor = vtkActor()
-        self.frustum_fill_actor.SetMapper(self.frustum_fill_mapper)
-        self.frustum_fill_actor.GetProperty().SetColor(self.frustum_color)
-        self.frustum_fill_actor.GetProperty().SetOpacity(0.06)
-
-        self.planes = vtkPlanes()  # Will be used in update_frustum method
-        # Put the bounding pyramid and the filled volume into an assembly
-        fa = vtkAssembly()
-        fa.AddPart(self.frustum_actor)
-        fa.AddPart(self.frustum_fill_actor)
-        # Call update_frustum once to silence warnings about "6 planes required"
-        # We can't know window height/width yet so give it 1x1
-        self.update_frustum(1.0, 1.0)
-
-        return fa
 
     def create_vtk_camera(self):
         """
@@ -242,15 +227,6 @@ class VirgoCamera():
           msg = (f"ERROR: Frustum far plane {distance} must be > 0.0 in "
                  f"{self.__class__.__name__}")
           raise RuntimeError (msg)
-
-    def zoom(self):
-        """
-        TBD function for applying a zoom to the current camera. This
-        affects the view angle by a scale factor
-        """
-        # Unimplemented
-        pass
-
 
     def set_position(self, x, y, z, warn=True):
         """
@@ -410,51 +386,19 @@ class VirgoCamera():
             self.frustum_assembly.SetVisibility(0)
 
 
-    def update_frustum(self, window_width, window_height ):
+    def update_frustum(self, window_width, window_height):
         """
-        Update the geometry of the frustum based on aspect ratio and
-        self.frustum_far_plane distance. This doesn't move self.frustum_assembly
-        it recomputes the planes that assembly uses to be in world space.
-
-        When calling GetFrustumPlanes, the 6 plane equations are expressed in
-        world coordinates — they already encode the camera's position,
-        orientation, FOV, and clipping range baked into the plane coefficients.
-        vtkFrustumSource (self.frustum_source) then computes the 8 corner
-        vertices of the frustum by finding the intersections of those planes,
-        and those corners come out as absolute world-space positions.  So the
-        "movement" of the frustum isn't actor movement at all — it's the
-        geometry itself being recomputed with different vertex positions each
-        frame. The actor stays at the origin with no transform, but its
-        underlying polydata has completely different coordinates every update.
-
-        TODO: This approach doesn't work well at spacecraft scene scale, see
-        the create_frustum_assembly comment
+        Recompute the frustum visualization's geometry and keep it
+        positioned at the camera. Only touches frustum-visualization state, 
+        does not move the camera itself or follow a parent, see update().
         """
-        if self.frustum_assembly == None:
+        if self.frustum is None:
             return
-
-        # Compute aspect ratio of the PRIMARY viewport in pixels
-        aspect = window_width / window_height if window_height > 0 else 1.0
-    
-        # GetFrustumPlanes expects a flat list of 24 floats (6 planes x 4 coefficients)
-        plane_coeffs = [0.0] * 24
-    
-        # Temporarily swap in a shorter far plane for display
-        # purposes - so the frustum pyramid doesn't exend impractically far
-        near, far = self.camera.GetClippingRange()
-        self.camera.SetClippingRange(near, self.frustum_far_plane)
-        self.camera.GetFrustumPlanes(aspect, plane_coeffs)
-        self.camera.SetClippingRange(near, far)   # restore
-    
-        # Load coefficients into vtkPlanes
-        self.planes.SetFrustumPlanes(plane_coeffs)
-    
-        self.frustum_source.SetPlanes(self.planes)
-        self.frustum_source.Modified()
-        pts = self.frustum_source.GetOutput().GetPoints()
-        print(f"DEBUG: frustum points are:")
-        for i in range(pts.GetNumberOfPoints()):
-            print(pts.GetPoint(i))
+        self.frustum.update_frustum(
+            camera=self, 
+            window_width=window_width, 
+            window_height=window_height)
+        self.frustum_assembly = self.frustum.assembly
 
     def get_frustum_far_plane(self):
         return self.frustum_far_plane
@@ -718,3 +662,180 @@ class VirgoCamera():
 
     def azimuth(self, value):
         self.camera.Azimuth(value)
+
+
+class VirgoCameraFrustum(VirgoSceneNode):
+    """
+    A VirgoSceneNode that visualizes a VirgoCamera's frustum as a wireframe
+    pyramid. Kept as its own node (rather than a bare vtkAssembly living on
+    VirgoCamera) so it's a first-class part of the scene hierarchy, per
+    Dan's suggestion on the frustum-visualization issue.
+
+    PRECISION: the 8 corner points computed in update_frustum() are
+    expressed relative to the camera - direction/right/up scaled by
+    near/far distance and half-angle - and never have the camera's
+    absolute world position added into them. This node is instead
+    translated to the camera's world position via set_pose(pos=...) each
+    frame (translation only, confirmed safe against the real
+    VirgoSceneNode.set_pose(): with ypr/dcm both None it just calls
+    self.local_transform.Translate(*pos) after resetting to Identity, no
+    rotation gets applied on top of these already-world-oriented corner
+    points). That split - small local geometry + a separate large-
+    magnitude translation - is what avoids the precision collapse that
+    broke the original vtkFrustumSource-based approach at spacecraft
+    scene scale.
+    """
+    CROSS_PRODUCT_TOLERANCE = 1e-8
+
+    def __init__(
+            self, 
+            name="Camera Frustum", 
+            color=[1.0, 1.0, 1.0], 
+            face_opacity=0.2, 
+            line_width=2.0):
+        self.color = color
+        self.line_width = line_width
+        self.face_opacity = face_opacity
+
+        # Points created once and mutated in the update function
+
+        self.points = vtkPoints()
+        for _ in range(5):
+            self.points.InsertNextPoint(0.0, 0.0, 0.0)
+
+        # Wireframe topology
+        self.polydata = vtkPolyData()
+        self.polydata.SetPoints(self.points)
+        lines = vtkCellArray()
+        edges = [
+            (0, 1), (0, 2), (0, 3), (0, 4),
+            (1, 2), (2, 3), (3, 4), (4, 1),
+        ]
+
+        for a, b in edges:
+            lines.InsertNextCell(2)
+            lines.InsertCellPoint(a)
+            lines.InsertCellPoint(b)
+        self.polydata.SetLines(lines)
+
+        self.mapper = vtkPolyDataMapper()
+        self.mapper.SetInputData(self.polydata)
+        self.actor = vtkActor()
+        self.actor.SetMapper(self.mapper)
+        # VirgoSceneNode.__init__() unconditionally calls
+        # create_silhouette(), which - once past the pickable check -
+        # calls self.actor.get_num_vertices(), a VirgoActor-specific
+        # method our plain vtkActor doesn't have. A fresh vtkActor
+        # defaults to pickable, so this must be turned off before calling
+        # super().__init__() to short-circuit that check. Also makes
+        # sense semantically: a frustum overlay shouldn't be selectable.
+        self.actor.SetPickable(False)
+        self.actor.GetProperty().SetRepresentationToWireframe()
+        self.actor.GetProperty().SetColor(self.color)
+        self.actor.GetProperty().SetLineWidth(self.line_width)
+        self.actor.GetProperty().SetOpacity(0.95)
+
+        # Filled faces
+        self.face_polydata = vtkPolyData()
+        self.face_polydata.SetPoints(self.points)
+        polys = vtkCellArray()
+        side_tris = [(0, 1, 2), (0, 2, 3), (0, 3, 4), (0, 4, 1)]
+
+        for a, b, c in side_tris:
+            polys.InsertNextCell(3)
+            polys.InsertCellPoint(a)
+            polys.InsertCellPoint(b)
+            polys.InsertCellPoint(c)
+        polys.InsertNextCell(4)
+        for i in (1, 2, 3, 4):
+            polys.InsertCellPoint(i)
+        self.face_polydata.SetPolys(polys)
+
+        self.face_mapper = vtkPolyDataMapper()
+        self.face_mapper.SetInputData(self.face_polydata)
+        self.face_actor = vtkActor()
+        self.face_actor.SetMapper(self.face_mapper)
+        self.face_actor.SetPickable(False)
+        self.face_actor.GetProperty().SetRepresentationToSurface()
+        self.face_actor.GetProperty().SetColor(self.color)
+        self.face_actor.GetProperty().SetLighting(False)
+        self.face_actor.GetProperty().BackfaceCullingOff()
+        self.face_actor.GetProperty().SetOpacity(self.face_opacity)
+
+        # Initialize SceneNode
+        super().__init__(
+            name=name,
+            actor=self.actor,
+            axes=False
+        )
+        self.assembly.AddPart(self.face_actor)
+
+
+    def update_frustum(self, camera, window_width, window_height):
+        """
+        Rebuild frustum geometry from the current camera state and move
+        this node to the camera's world position.
+        """
+
+        if window_width <= 0.0 or window_height <= 0.0:
+            raise ValueError("Window width and height must be a positive real number.")
+
+        vtk_camera = camera.camera
+
+        far = camera.frustum_far_plane
+
+        # Camera parameters
+        position = np.array(vtk_camera.GetPosition())
+        focal = np.array(vtk_camera.GetFocalPoint())
+        view_up = np.array(vtk_camera.GetViewUp())
+        angle = vtk_camera.GetViewAngle()
+
+        direction = focal - position
+        direction = direction / np.linalg.norm(direction)
+
+        right = np.cross(direction, view_up)
+        right_norm = np.linalg.norm(right)
+        if right_norm < self.CROSS_PRODUCT_TOLERANCE:
+            fallback = np.array([1.0, 0.0, 0.0])
+            fallback_norm = np.linalg.norm(np.cross(direction, fallback))
+            if fallback_norm < self.CROSS_PRODUCT_TOLERANCE:
+                fallback = np.array([0.0, 1.0, 0.0])
+            right = np.cross(direction, fallback)
+        right = right / np.linalg.norm(right)
+
+        up = np.cross(right, direction)
+        up = up / np.linalg.norm(up)
+
+        # Frustum dimensions
+        aspect = window_width / window_height
+        far_height = 2 * far * np.tan(np.radians(angle) / 2)
+        far_width = far_height * aspect
+
+        # Centers, relative to the camera - NOT offset by `position`. The
+        # camera's world position is handled entirely by set_pose() below,
+        # keeping these point coordinates small regardless of where the
+        # camera is in the scene.
+        far_center = direction * far
+
+        # 1 apex and 4 points in far clipping plane
+
+        # Apex is the camera's own position
+        apex = np.array([0.0, 0.0, 0.0])
+
+        corners = [
+            apex,                                                       # 0
+            far_center - right * far_width / 2 + up * far_height / 2,   # 1
+            far_center + right * far_width / 2 + up * far_height / 2,   # 2
+            far_center + right * far_width / 2 - up * far_height / 2,   # 3
+            far_center - right * far_width / 2 - up * far_height / 2,   # 4
+        ]
+
+        # Mutate existing points in place
+        for i, p in enumerate(corners):
+            self.points.SetPoint(i, *p)
+            self.points.Modified()
+            self.polydata.Modified()
+            self.face_polydata.Modified()
+
+        # Translate this VirgoSceneNode to the position of camera
+        self.set_pose(pos=list(position))

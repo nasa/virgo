@@ -108,12 +108,7 @@ class VirgoControlCenter:
         self.fs = 14      # font size
         self.renderers = renderers
         self.render_window = render_window
-        self.cameras = {}
-        # Add the cameras from each rendering layer
-        for r in self.renderers:
-            self.cameras[r] = VirgoCamera(name=r, frustum_when='never')
-            self.cameras[r].set_vtk_camera(renderers[r].GetActiveCamera())
-            self.cameras[r].store_clipping_range()
+        self.cameras = {} # Populated from calls to Virgo.add_cameras()
         self.interactor = interactor
         self.cam_sync_observer_tag = None
         # These interactor above this line will use one of the two styles
@@ -272,11 +267,6 @@ class VirgoControlCenter:
         for rn in self.root_nodes:
             layer = self.root_nodes[rn].get_layer()
             self.renderers[layer].AddActor(self.root_nodes[rn].assembly)
-        user_facing_cams = self.get_user_facing_cameras()
-        for c in user_facing_cams:
-            fa = user_facing_cams[c].get_frustum_assembly()
-            if fa:
-                self.renderers['foreground'].AddActor(fa)
         # Add all HUD actors to the scene
         for t in self.text_actors:
             self.renderers['foreground'].AddActor(self.text_actors[t])
@@ -341,6 +331,9 @@ class VirgoControlCenter:
 
     def set_nodes(self, nodes_dict):
         self.nodes = nodes_dict
+
+    def set_cameras(self, cameras_dict):
+        self.cameras = cameras_dict
 
     def set_vectors(self, vectors_dict):
         self.vectors = vectors_dict
@@ -581,19 +574,6 @@ class VirgoControlCenter:
             sp = self.nodes[n].silhouette_polydata 
             if sp != None:
                 sp.SetCamera(self.cameras[l].get_vtk_camera())
-
-        # Remove any camera frustums that are too far away. Here we assume
-        # frustums can only live in the foreground layer
-        ufc = self.get_user_facing_cameras()
-        for c in ufc:
-            this_cam_pos = ufc[c].get_position()
-            fa = ufc[c].get_frustum_assembly()
-            distance = np.linalg.norm(camera_pos - this_cam_pos)
-            if distance > self.foreground_far_boundary:
-                self.renderers['foreground'].RemoveActor(fa)
-            else:
-                if not self.renderers['foreground'].GetActors().IsItemPresent(fa):
-                    self.renderers['foreground'].AddActor(fa)
 
         self.configure_camera_clipping_ranges()
 
@@ -1181,7 +1161,6 @@ class VirgoControlCenter:
 
     def on_key_press(self, caller, event):
         key = self.interactor.GetKeySym()
-        #print(f'DEBUG: Key pressed: {key}')
         if key == 'equal':
             self.fontsize('up')
         if key == 'minus':
@@ -1231,6 +1210,8 @@ class VirgoControlCenter:
             self.camera_report()
         if key == "C":
             self.toggle_camera_interactors()
+        if key == "f":
+            self.toggle_frustums()
         if key == "space":
             self.handle_pause_button()
         if key == "Left" or key =='comma':
@@ -1242,6 +1223,11 @@ class VirgoControlCenter:
         if key == "Down":
             self.switch_cameras('previous')
         self.update()
+
+    def toggle_frustums(self):
+        # Flip class level state
+        VirgoCamera.global_show_toggled_frustums = not VirgoCamera.global_show_toggled_frustums
+
 
     def report_nodes(self):
         for n in self.nodes:
@@ -1501,24 +1487,12 @@ class VirgoControlCenter:
                     continue
                 self.nodes[n].data_source.set_current_time(self.world_time, strategy='closest')
 
+
+
     def initialize_cameras(self):
         """
-        Initialize all user-defined cameras. Note that self.cameras
-        is already populated with non-user-facing cameras
+        Configure camera clipping ranges and default behavior of cameras
         """
-        cameras = {}
-        if 'cameras' in self.scene and self.scene['cameras'] != None:
-          for c in self.scene['cameras']:
-            cameras[c] = {}
-            cameras[c] = self.create_camera(name=c, csd=self.scene['cameras'][c])
-        # If no default camera specified by the user, create it
-        if not cameras or 'default' not in cameras:
-            cameras['default'] = {}
-            cameras['default'] = self.create_camera(name='default', csd={})
-
-        # Add user cameras to the full camera dictionary
-        self.cameras.update(cameras)
-
         # Set clipping ranges for very far away cameras, the other cameras
         # 'foreground' and 'midground' clipping ranges are dynamic and
         # change with the movement of the camera
@@ -1624,71 +1598,6 @@ class VirgoControlCenter:
                 return self.cameras[cam]
         return None
 
-    def create_camera(self, name, csd, _class=None):
-        """
-        Create and return a VirgoCamera with the info provided
-
-        Params:
-          csd: This camera's scene dict
-          _class: Used for camera extension (currently untested)
-        """
-        # Make sure the given class derives from VirgoCamera
-        if _class == None:
-          _class = VirgoCamera
-        elif not issubclass(_class, VirgoCamera):
-          msg = (f"ERROR: Improper extension detected: {_class} must derive from" 
-                 f"VirgoCamera")
-          raise RuntimeError (msg)
-
-        # Default values which can be overridden by info in csd
-        mode='TB'
-        position=[0.0, 0.0, 0.0]
-        focal_point=[1.0, 0.0, 0.0]
-        view_up=[0.0, 0.0, 1.0]
-        view_angle=30
-        static=False
-        frustum_when='toggled'
-        frustum_far_plane=1.0
-        frustum_color=[1.0, 0.9, 0.1]
-        priority=0
-        parent=None
-         
-        if 'mode' in csd and csd['mode'] != None:
-          mode = csd['mode']
-        if 'pos' in csd and csd['pos'] != None:
-          position = csd['pos']
-        if 'focal_point' in csd and csd['focal_point'] != None:
-          focal_point = csd['focal_point']
-        if 'view_up' in csd and csd['view_up'] != None:
-          view_up = csd['view_up']
-        if 'view_angle' in csd and csd['view_angle'] != None:
-          view_angle = csd['view_angle']
-        if 'static' in csd and csd['static'] != None:
-          static = csd['static']
-        if 'frustum_when' in csd and csd['frustum_when'] != None:
-          frustum_when = csd['frustum_when']
-        if 'frustum_far_plane' in csd and csd['frustum_far_plane'] != None:
-          frustum_far_plane = csd['frustum_far_plane']
-        if 'frustum_color' in csd and csd['frustum_color'] != None:
-          frustum_color = csd['frustum_color']
-        if 'priority' in csd and csd['priority'] != None:
-          priority = csd['priority']
-        if 'parent' in csd and csd['parent'] != None:
-          parent = self.nodes[csd['parent']]
-
-        camera = VirgoCamera(name=name,
-                 mode=mode,
-                 position=position,
-                 focal_point=focal_point,
-                 view_up=view_up,
-                 view_angle=view_angle,
-                 static=static,
-                 frustum_when=frustum_when,
-                 frustum_far_plane=frustum_far_plane,
-                 frustum_color=frustum_color,
-                 priority=priority,
-                 parent=parent)
-        return(camera)
 
     def init_renderer_options(self):
       """
@@ -2057,6 +1966,12 @@ class VirgoScene:
 
         self.render_window = vtkRenderWindow()
         self.renderers = self.setup_renderers(self.background_color)
+        self.cameras = {}  # All cameras in the scene
+        # Add the cameras from each rendering layer
+        for r in self.renderers:
+            self.cameras[r] = VirgoCamera(name=r, frustum_when='never')
+            self.cameras[r].set_vtk_camera(self.renderers[r].GetActiveCamera())
+            self.cameras[r].store_clipping_range()
         self.render_window.SetNumberOfLayers(len(self.renderers.keys()))
         self.interactor = vtkRenderWindowInteractor()
     
@@ -2119,6 +2034,8 @@ class VirgoScene:
         self.render_window.SetSize(self.window_width, self.window_height)
         self.render_window.SetWindowName(self.name)
 
+        self.initialize_cameras()  # Load all cameras from the self.scene
+
         # Set custom interactor style
         self.interactor.SetInteractorStyle(self.trackball_style)
         
@@ -2148,6 +2065,15 @@ class VirgoScene:
         if parent_name is not None:
             parent = self.nodes[parent_name]
             parent.add_child(node)
+
+    def add_camera(self, camera):
+        """
+        Add cameras, along with any frustums to node
+        """
+        self.cameras[camera.name] = camera
+
+        if camera.has_frustum():
+            self.add_node(camera._frustum)
 
 
     def _verify_scene(self):
@@ -2339,6 +2265,128 @@ class VirgoScene:
             trail = node.create_trail(color=color, thickness=thickness,
                                       opacity=opacity)
         return trail
+
+    def create_camera(self, name, csd, _class=None):
+        """
+        Create and return a VirgoCamera with the info provided
+
+        Params:
+          csd: This camera's scene dict
+          _class: Used for camera extension (currently untested)
+        """
+        # Make sure the given class derives from VirgoCamera
+        if _class == None:
+          _class = VirgoCamera
+        elif not issubclass(_class, VirgoCamera):
+          msg = (f"ERROR: Improper extension detected: {_class} must derive from" 
+                 f"VirgoCamera")
+          raise RuntimeError (msg)
+
+        # Default values which can be overridden by info in csd
+        mode='TB'
+        position=[0.0, 0.0, 0.0]
+        focal_point=[1.0, 0.0, 0.0]
+        view_up=[0.0, 0.0, 1.0]
+        view_angle=30
+        static=False
+        frustum_when='toggled'
+        frustum_far_plane=1.0
+        frustum_color=[1.0, 0.9, 0.1]
+        frustum_face_opacity=0.15
+        frustum_line_width=2.0
+        priority=0
+        parent=None
+         
+        if 'mode' in csd and csd['mode'] != None:
+          mode = csd['mode']
+        if 'pos' in csd and csd['pos'] != None:
+          position = csd['pos']
+        if 'focal_point' in csd and csd['focal_point'] != None:
+          focal_point = csd['focal_point']
+        if 'view_up' in csd and csd['view_up'] != None:
+          view_up = csd['view_up']
+        if 'view_angle' in csd and csd['view_angle'] != None:
+          view_angle = csd['view_angle']
+        if 'static' in csd and csd['static'] != None:
+          static = csd['static']
+        if 'frustum_when' in csd and csd['frustum_when'] != None:
+          frustum_when = csd['frustum_when']
+        if 'frustum_far_plane' in csd and csd['frustum_far_plane'] != None:
+          frustum_far_plane = csd['frustum_far_plane']
+        if 'frustum_color' in csd and csd['frustum_color'] != None:
+          frustum_color = csd['frustum_color']
+        if 'frustum_face_opacity' in csd and csd['frustum_face_opacity'] != None:
+          frustum_face_opacity = csd['frustum_face_opacity']
+        if 'frustum_line_width' in csd and csd['frustum_line_width'] != None:
+          frustum_line_width = csd['frustum_line_width']
+        if 'priority' in csd and csd['priority'] != None:
+          priority = csd['priority']
+        if 'parent' in csd and csd['parent'] != None:
+          parent = self.nodes[csd['parent']]
+
+        camera = VirgoCamera(name=name,
+                 mode=mode,
+                 position=position,
+                 focal_point=focal_point,
+                 view_up=view_up,
+                 view_angle=view_angle,
+                 static=static,
+                 frustum_when=frustum_when,
+                 frustum_far_plane=frustum_far_plane,
+                 frustum_color=frustum_color,
+                 frustum_face_opacity=frustum_face_opacity,
+                 frustum_line_width=frustum_line_width,
+                 priority=priority,
+                 parent=parent)
+        return(camera)
+
+    def initialize_cameras(self):
+        """
+        Initialize all user-defined cameras. Note that self.cameras
+        is already populated with non-user-facing cameras
+        """
+        cameras = {}
+        if 'cameras' in self.scene and self.scene['cameras'] != None:
+          for c in self.scene['cameras']:
+            cameras[c] = {}
+            cameras[c] = self.create_camera(name=c, csd=self.scene['cameras'][c])
+
+        # If no default camera specified by the user, create it
+        if not cameras or 'default' not in cameras:
+            cameras['default'] = {}
+            cameras['default'] = self.create_camera(name='default', csd={})
+
+        # Add user cameras to the full camera dictionary
+        self.cameras.update(cameras)
+
+        # Remove frustum of all non-user-facing cameras and 'default' camera
+        for c in self.cameras:
+            if c not in self.get_user_facing_cameras() or c == 'default':
+                self.cameras[c].disable_frustum()
+                #self.cameras[c].set_frustum_invisible()
+
+        # Add the frustum nodes to self.nodes (they are root nodes)
+        for c in self.cameras:
+            if self.cameras[c].has_frustum():
+                print(f"Adding {c} to root nodes")
+                self.add_node(self.cameras[c].get_frustum())
+
+        # Pass the cameras dict into the controller
+        self.controller.set_cameras(self.cameras)
+
+    def get_user_facing_cameras(self):
+        """
+        Get a subset of self.cameras dict, ignoring cameras outside of user
+        space.
+
+        TODO: this is duplicated between VirgoScene and VirgoControlCenter!
+        """
+        user_facing_cams = {}
+        for cam in self.cameras:
+            if self.cameras[cam].get_name() in VirgoRendering.non_user_facing_cameras:
+                continue
+            user_facing_cams[cam] = self.cameras[cam]
+        return user_facing_cams
 
     def initialize_nodes(self, fncc=VirgoSceneNode, ancc=VirgoSceneNode,
                          vncc=VirgoSceneNodeVector):

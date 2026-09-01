@@ -87,5 +87,84 @@ class VirgoDictVerifierTestCase(unittest.TestCase):
         self.assertIn("vectors", str(e.exception))
         self.assertIn("frames", str(e.exception))
 
+    # Frustum check tests
+        
+    def test_default_camera_frustum_when_never_is_allowed(self):
+        self.scene['cameras'] = {
+            'default': {'frustum_when': 'never'},
+        }
+        verified_dict = VirgoDictVerifier(self.scene).verify(terminate=False)
+        self.assertEqual(
+            verified_dict['cameras']['default']['frustum_when'], 'never')
 
+    def test_default_camera_frustum_when_omitted_is_allowed(self):
+        """
+        frustum_when defaults to 'never' on CameraSchema when not given,
+        so omitting it entirely for the default camera should also pass.
+        """
+        self.scene['cameras'] = {
+            'default': {},
+        }
+        verified_dict = VirgoDictVerifier(self.scene).verify(terminate=False)
+        self.assertEqual(
+            verified_dict['cameras']['default']['frustum_when'], 'never')
 
+    def test_default_camera_frustum_when_always_is_rejected(self):
+        self.scene['cameras'] = {
+            'default': {'frustum_when': 'always'},
+        }
+        with self.assertRaises(ValidationError) as e:
+            VirgoDictVerifier(self.scene).verify(terminate=False)
+        self.assertIn('frustum_when is not supported for the default camera',
+                       str(e.exception))
+
+    def test_default_camera_frustum_when_toggled_is_rejected(self):
+        self.scene['cameras'] = {
+            'default': {'frustum_when': 'toggled'},
+        }
+        with self.assertRaises(ValidationError) as e:
+            VirgoDictVerifier(self.scene).verify(terminate=False)
+        self.assertIn('frustum_when is not supported for the default camera',
+                       str(e.exception))
+
+    def test_non_default_camera_frustum_when_always_is_allowed(self):
+        """
+        Regression guard: the default-camera restriction must not leak
+        onto other cameras in the same scene.
+        """
+        self.scene['cameras'] = {
+            'default': {'frustum_when': 'never'},
+            'first_camera_view': {'frustum_when': 'always'},
+        }
+        verified_dict = VirgoDictVerifier(self.scene).verify(terminate=False)
+        self.assertEqual(
+            verified_dict['cameras']['first_camera_view']['frustum_when'],
+            'always')
+
+    def test_multiple_non_default_cameras_with_frustum_are_allowed(self):
+        self.scene['cameras'] = {
+            'side_view': {'frustum_when': 'toggled', 'priority': 1},
+            'top_view': {'frustum_when': 'always', 'priority': 2},
+        }
+        verified_dict = VirgoDictVerifier(self.scene).verify(terminate=False)
+        self.assertEqual(
+            verified_dict['cameras']['side_view']['frustum_when'], 'toggled')
+        self.assertEqual(
+            verified_dict['cameras']['top_view']['frustum_when'], 'always')
+
+    def test_no_default_key_in_cameras_does_not_raise(self):
+        self.scene['cameras'] = {
+            'side_view': {'frustum_when': 'always', 'priority': 1},
+        }
+        verified_dict = VirgoDictVerifier(self.scene).verify(terminate=False)
+        self.assertNotIn('default', verified_dict['cameras'])
+
+    def test_cameras_omitted_entirely_does_not_raise(self):
+        """
+        self.cameras is None when cameras: is absent from the scene dict
+        (see validate_cameras_parents' None-handling) - check_default_frustum
+        must tolerate that the same way.
+        """
+        # self.scene from setUp has no 'cameras' key by default
+        verified_dict = VirgoDictVerifier(self.scene).verify(terminate=False)
+        self.assertIn('name', verified_dict) 

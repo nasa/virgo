@@ -331,6 +331,9 @@ cameras:
     mode: FP
     static: 1
     view_angle: 30
+    frustum_when: toggled
+    frustum_far_plane: 5
+    frustum_color: [1.0, 0.9, 0.15]
 
 sun:
   direction: [1.0, 0.0, 0.0]  # World vector pointing towards sun

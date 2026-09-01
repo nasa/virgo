@@ -195,6 +195,7 @@ class VirgoHud:
                 f"\n up/down : Switch cameras"
                 f"\n C: Toggle cam trackball/first-person"
                 f"\n c: Parent/unparent camera to picked"
+                f"\n f: Toggle Camera Frustums"
                 f"\n l: Toggle Lighting Mode"
                 f"\n L: Toggle Node Label Visibility"
                 f"\n v: Print picked node info in terminal"

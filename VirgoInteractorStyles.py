@@ -75,10 +75,12 @@ class VirgoTrackballInteractorStyle(vtkInteractorStyleTrackballCamera):
                 return self.cameras[cam]
         return None
 
-    # Override base class onChar to ignore the 'e' key
+    # Override base class onChar to ignore the 'e' and 'f' key
     def onChar(self, obj, event):
         key = self.GetInteractor().GetKeySym()
-        if key != 'e':  # Ignore 'e' key to prevent exit
+        # Ignore 'e' key to prevent exit and
+        # ignore 'f' key to prevent "Fly-To" functionality
+        if key != 'e' and key != 'f':  
             super().OnChar()
 
     def StoreRelativeCameraInfo(self, caller, event):

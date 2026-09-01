@@ -626,6 +626,46 @@ cameras:      # Optional dictionary which defines the camera or cameras
                 #   automatically determined as parent's +Z in this case.
     view_angle: # Optional float describing the view angle (angular height of
                 #   the camera view) in degrees.  Defaults to 30 degrees.
+    frustum_when:      # Optional string controlling when this camera's frustum
+                       #   visualization (the wireframe/filled pyramid showing
+                       #   this camera's view volume) is shown to the user.
+                       #   Must be one of:
+                       #     'always'  - frustum is always visible for this
+                       #                 camera (except while it is the
+                       #                 active camera, since a camera never
+                       #                 shows its own frustum)
+                       #     'never'   - frustum is never constructed or
+                       #                 shown for this camera
+                       #     'toggled' - frustum visibility follows the
+                       #                 user's global frustum-visibility
+                       #                 toggle
+                       #   Defaults to 'toggled'. Note the 'default' camera
+                       #   never gets a frustum regardless of this setting.
+    frustum_far_plane: # Optional float describing how far out from the
+                       #   camera the frustum's far face is drawn, in scene
+                       #   units. This is a visualization-only distance -
+                       #   it does not affect what the camera actually
+                       #   renders or clips. Only used when frustum_when is
+                       #   not 'never'. Defaults to 1.0
+    frustum_color:     # Optional list of 3 floats (RGB, 0.0-1.0) describing
+                       #   the color of the frustum's wireframe edges and
+                       #   filled faces. Only used when frustum_when is not
+                       #   'never'. Defaults to [1.0, 1.0, 1.0]
+    frustum_face_opacity: # Optional float (0.0-1.0) describing the opacity
+                          #   of the frustum's filled faces. 0.0 is fully
+                          #   transparent/invisible, 1.0 is fully opaque.
+                          #   Does not affect the wireframe edges, which are
+                          #   drawn at their own fixed opacity. Only used
+                          #   when frustum_when is not 'never'. Defaults to
+                          #   0.15
+    frustum_line_width:   # Optional float describing the line width (in
+                          #   pixels) of the frustum's wireframe edges. Only
+                          #   used when frustum_when is not 'never'. Defaults
+                          #   to 2.0
+    priority:   # Optional integer defining the sequence order when
+                #   cycling through user-facing cameras. Cameras with
+                #   lower priority values are selected first in the
+                #   switching rotation
     parent:     # Optional name of actor/node the camera should follow when 
                 #   the scene starts. If parent: given, it's value must be the
                 #   key of an actor, vector, or frame defined in the scene

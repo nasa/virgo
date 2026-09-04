@@ -2,9 +2,7 @@
 import sys, os, argparse, yaml, inspect
 
 thisFileDir = os.path.dirname(os.path.abspath(inspect.getsourcefile(lambda:0)))
-sys.path.append(os.path.abspath(os.path.join(thisFileDir, '../../')))
-
-from Virgo import VirgoScene
+from virgo.Virgo import VirgoScene
 
 parser = argparse.ArgumentParser(
     description='Camera frustum visualization example',

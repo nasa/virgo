@@ -5,14 +5,11 @@ from numpy.testing import assert_allclose
 import pdb
 from unittest.mock import Mock
 
-# Add path to virgo module
-thisFileDir = os.path.dirname(os.path.abspath(inspect.getsourcefile(lambda:0)))
-virgo_dir=os.path.abspath(os.path.join(thisFileDir, '../'))
-sys.path.append(virgo_dir)
-from Virgo import *
-meshes_dir=os.path.join(virgo_dir, 'meshes')
-tests_dir=os.path.join(virgo_dir, 'tests')
-from VirgoInteractorStyles import *
+import virgo
+from virgo.Virgo import *
+meshes_dir=os.path.join(os.path.dirname(virgo.__file__), 'meshes')
+tests_dir=os.path.dirname(os.path.abspath(inspect.getsourcefile(lambda:0)))
+from virgo.VirgoInteractorStyles import *
 
 def suite():
     """Create test suite from test cases here and return"""

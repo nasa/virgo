@@ -11,4 +11,4 @@ libtrickunits.so: map_trick_units_to_udunits.cpp \
 				  UdUnits.hh \
 				  trick_units.cpp \
 				  trick_units.hh
-	$(CXX) -shared -fPIC -o $@ $(CFLAGS) $(filter %.cpp,$^) -I/usr/include/udunits2 -ludunits2
+	$(CXX) -shared -fPIC -o $@ $(CFLAGS) $(filter %.cpp,$^) -L/opt/homebrew/lib -I/opt/homebrew/include -I/usr/include/udunits2 -ludunits2

@@ -4,19 +4,19 @@ VIRGO: Versatile Imaging and Rendering for Galactic Operations
 A Practical, Analytical, and Hardworking 3D Visualization tool
 leveraging python-VTK
 """
-from VirgoInteractorStyles import (
+from .VirgoInteractorStyles import (
   VirgoTrackballInteractorStyle,
   VirgoInteractorStyleFirstPerson
 )
-from VirgoActor import VirgoActor
-from VirgoNode import VirgoSceneNode, VirgoSceneNodeVector
-from VirgoSplash import VirgoSplash
-from VirgoHud import VirgoHud
-from VirgoConsole import VirgoConsole
-from VirgoUtils import cprint, timed_debug, time_render_layers
-from VirgoRendering import VirgoRendering
-from VirgoCamera import VirgoCamera
-from VirgoKovizInterface import KovizInterface
+from .VirgoActor import VirgoActor
+from .VirgoNode import VirgoSceneNode, VirgoSceneNodeVector
+from .VirgoSplash import VirgoSplash
+from .VirgoHud import VirgoHud
+from .VirgoConsole import VirgoConsole
+from .VirgoUtils import cprint, timed_debug, time_render_layers
+from .VirgoRendering import VirgoRendering
+from .VirgoCamera import VirgoCamera
+from .VirgoKovizInterface import KovizInterface
 
 import os, sys, inspect, time, tempfile
 import math, textwrap
@@ -2081,7 +2081,7 @@ class VirgoScene:
         Call the VirgoDictVerifier to ensure the given scene dictionary
         is a valid schema
         """
-        from VirgoDictVerifier import VirgoDictVerifier
+        from .VirgoDictVerifier import VirgoDictVerifier
         vdv = VirgoDictVerifier(scene_dict=self.scene, yaml_file=self.scene_yaml_path)
         self.scene = vdv.verify()
 

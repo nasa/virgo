@@ -39,6 +39,7 @@ from collections import OrderedDict
 
 from .variable import VariableInfo, Variable
 from .views import ListView, KeysView, ValuesView, ItemsView
+from . import paths
 
 
 class FileVariableInfo(VariableInfo):
@@ -305,7 +306,7 @@ def _read_monte_runs_meta_old_format(f):
     """Read the metadata from a monte_runs file in the old format."""
 
     # The first line is a space delimited list of the variable names.
-    header = f.readline()
+    header = f.readline().decode()
     header = header.lstrip('#').strip()
     variables = header.split()
     return variables[1:]        # remove the run_num variable
@@ -320,7 +321,7 @@ def _read_meta_entry(f, key):
     value.
 
     """
-    line = f.readline()
+    line = f.readline().decode()
     if not line.startswith("#{}:".format(key)):
         raise InvalidMetadata("unexpected line: {}".format(line))
     parts = line.split()
@@ -334,7 +335,7 @@ def _read_meta_entry(f, key):
 
 def _read_meta_empty_line(f):
     """Read the next line from f, and enforce that it is empty."""
-    line = f.readline()
+    line = f.readline().decode()
     if line.strip() != "":
         raise InvalidMetadata("unexpected line: {}".format(line))
 
@@ -388,7 +389,7 @@ def _read_monte_runs_meta_new_format(f):
     # First, we read the metadata specifying the dispersions.
     info = {}
     while True:
-        line = f.readline()
+        line = f.readline().decode()
 
         if line.startswith("#NAME"):
             variable = line.split()[1]
@@ -409,9 +410,10 @@ def _read_monte_runs_meta_new_format(f):
 _monte_header_re = re.compile(r"var\d+ = trick\.MonteVarFile\(\"(?P<variable>.+?)\", \".+?\", \d+(, \"(?P<units>.*?)\")?\)")
 def _load_monte_header(path, variables):
     """Load the units from a monte_header file."""
-    with open(path, "r") as f:
+    with path.open("rb") as f:
         out = dict()
         for line in f:
+            line = line.decode()
             m = _monte_header_re.match(line)
             if m is not None:
                 groups = m.groupdict()
@@ -451,12 +453,19 @@ def _read_meta_new_format(f):
 
 def _read_meta(f, monte_header_path):
     """Detect the file format and read dispersions metadata."""
-    line = f.readline()
+    line = f.readline().decode()
     f.seek(0)
     if line.startswith("#NAME") or line.startswith("# RUN"):
         return _read_meta_new_format(f)
     else:
         return _read_meta_old_format(f, monte_header_path)
+
+
+def _load_file_info(monte_runs_path, monte_header_path):
+    """Load information about a dispersions file."""
+    with monte_runs_path.open("rb") as f:
+        info, _ = _read_meta(f, monte_header_path)
+        return info
 
 
 def load_file_info(monte_runs_path, monte_header_path=None):
@@ -465,13 +474,13 @@ def load_file_info(monte_runs_path, monte_header_path=None):
     Parameters
     ----------
 
-    monte_runs_path : str
-        File system path of the `monte_runs` file.
-    monte_header_path : str, optional
-        File system path of the `monte_header` file.  Defaults to ``None``.  If
-        the `monte_runs` file is in the new format, this argument will be
-        ignored.  If the `monte_runs` file is in the old format, then this
-        argument is required for units information to be available.
+    monte_runs_path : path-like
+        Path of the `monte_runs` file.
+    monte_header_path : path-like, optional
+        Path of the `monte_header` file.  Defaults to ``None``.  If the
+        `monte_runs` file is in the new format, this argument will be ignored.
+        If the `monte_runs` file is in the old format, then this argument is
+        required for units information to be available.
 
     Returns
     -------
@@ -490,9 +499,30 @@ def load_file_info(monte_runs_path, monte_header_path=None):
     'FLAT'
 
     """
-    with open(monte_runs_path, "r") as f:
-        info, _ = _read_meta(f, monte_header_path)
-        return info
+    monte_runs_path = paths.infer(monte_runs_path)
+    if monte_header_path is not None:
+        monte_header_path = paths.infer(monte_header_path)
+    return _load_file_info(monte_runs_path, monte_header_path)
+
+
+def _load_file(monte_runs_path, monte_header_path):
+    """Load a dispersions file."""
+    with monte_runs_path.open("rb") as f:
+
+        info, column_indices = _read_meta(f, monte_header_path)
+
+        # The rest of the file is space delimited data.
+
+        raw_data = [line.strip().split() for line in f]
+        raw_data = list(zip(*raw_data))
+
+    runs = [int(x) for x in raw_data[0]]
+    data = OrderedDict((v, np.array(raw_data[column_indices[v]], dtype=float))
+                       for v in info)
+
+    return Dispersions(info,
+                       runs,
+                       data)
 
 
 def load_file(monte_runs_path, monte_header_path=None):
@@ -501,13 +531,13 @@ def load_file(monte_runs_path, monte_header_path=None):
     Parameters
     ----------
 
-    monte_runs_path : str
-        File system path of the `monte_runs` file.
-    monte_header_path : str, optional
-        File system path of the `monte_header` file.  Defaults to ``None``.  If
-        the `monte_runs` file is in the new format, this argument will be
-        ignored.  If the `monte_runs` file is in the old format, then this
-        argument is required for units information to be available.
+    monte_runs_path : path-like
+        Path of the `monte_runs` file.
+    monte_header_path : path-like, optional
+        Path of the `monte_header` file.  Defaults to ``None``.  If the
+        `monte_runs` file is in the new format, this argument will be ignored.
+        If the `monte_runs` file is in the old format, then this argument is
+        required for units information to be available.
 
     Returns
     -------
@@ -531,22 +561,10 @@ def load_file(monte_runs_path, monte_header_path=None):
     'FLAT'
 
     """
-    with open(monte_runs_path, "r") as f:
-
-        info, column_indices = _read_meta(f, monte_header_path)
-
-        # The rest of the file is space delimited data.
-
-        raw_data = [line.strip().split() for line in f]
-        raw_data = list(zip(*raw_data))
-
-    runs = [int(x) for x in raw_data[0]]
-    data = OrderedDict((v, np.array(raw_data[column_indices[v]], dtype=float))
-                       for v in info)
-
-    return Dispersions(info,
-                       runs,
-                       data)
+    monte_runs_path = paths.infer(monte_runs_path)
+    if monte_header_path is not None:
+        monte_header_path = paths.infer(monte_header_path)
+    return _load_file(monte_runs_path, monte_header_path)
 
 
 def load_monte_info(path):
@@ -555,8 +573,8 @@ def load_monte_info(path):
     Parameters
     ----------
 
-    path : str
-        File system path of the MONTE directory.
+    path : path-like
+        Path of the MONTE directory.
 
     Returns
     -------
@@ -571,11 +589,13 @@ def load_monte_info(path):
     ['variable1', 'variable2']
 
     """
-    monte_runs_path = os.path.join(path, 'monte_runs')
-    monte_header_path = os.path.join(path, 'monte_header')
-    if not os.path.exists(monte_header_path):
+    path = paths.infer(path)
+    monte_runs_path = path / "monte_runs"
+    try:
+        monte_header_path = path / "monte_header"
+    except:
         monte_header_path = None
-    return load_file_info(monte_runs_path, monte_header_path)
+    return _load_file_info(monte_runs_path, monte_header_path)
 
 
 def load_monte(path):
@@ -584,8 +604,8 @@ def load_monte(path):
     Parameters
     ----------
 
-    path : str
-        File system path of the MONTE directory.
+    path : path-like
+        Path of the MONTE directory.
 
     Returns
     -------
@@ -602,8 +622,10 @@ def load_monte(path):
     Variable([3.1, 2.9, 2.6, 3.5], 'm')
 
     """
-    monte_runs_path = os.path.join(path, 'monte_runs')
-    monte_header_path = os.path.join(path, 'monte_header')
-    if not os.path.exists(monte_header_path):
+    path = paths.infer(path)
+    monte_runs_path = path / "monte_runs"
+    try:
+        monte_header_path = path / "monte_header"
+    except:
         monte_header_path = None
-    return load_file(monte_runs_path, monte_header_path)
+    return _load_file(monte_runs_path, monte_header_path)

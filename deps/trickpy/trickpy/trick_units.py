@@ -1,17 +1,10 @@
 import ctypes
 import os
-import subprocess
 import numpy as np
 
 try:
     _module_path = os.path.abspath(os.path.dirname(__file__))
     _libtrickunits_path = os.path.join(_module_path, "trick_units", "libtrickunits.so")
-
-    if not os.path.exists(_libtrickunits_path):
-        p = subprocess.Popen(["make", "-C", os.path.join(_module_path, "trick_units")], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-        p.communicate()
-        if p.returncode != 0:
-            raise Exception("failed to build libtrickunits.so")
 
     _libtrickunits = ctypes.cdll.LoadLibrary(_libtrickunits_path)
 

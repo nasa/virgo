@@ -12,7 +12,7 @@ from vtkmodules.vtkCommonDataModel import (
 )
 import numpy as np
 import math
-from VirgoRendering import VirgoRendering
+from .VirgoRendering import VirgoRendering
 
 class VirgoTrailSegment:
     """

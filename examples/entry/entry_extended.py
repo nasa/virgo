@@ -5,9 +5,9 @@ import sys, yaml
 from entry import EntryExample, get_args
 
 # Import VIRGO classes we need
-from VirgoDataPlayback import VirgoDataPlayback
-from VirgoLabel import VirgoLabel
-from Virgo import VirgoControlCenter
+from virgo.VirgoDataPlayback import VirgoDataPlayback
+from virgo.VirgoLabel import VirgoLabel
+from virgo.Virgo import VirgoControlCenter
 
 
 class VirgoEntryControlCenter(VirgoControlCenter):
@@ -115,7 +115,7 @@ class ExtendedEntryExample(EntryExample):
     """
     def __init__(self):
         args = get_args()
-        self.generate_trajectory()
+        self.generate_trajectory(args.data_dir)
         with open(args.scene_config) as file:
             scene = yaml.safe_load(file) 
         # VirgoDataPlayback is the VirgoScene we want because it's built

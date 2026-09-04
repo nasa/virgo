@@ -8,7 +8,7 @@ description: |
      firings occur which change the orientation of the vehicle. When RCS jets
      fire, yellow cylinders are set to visible which indicate a force is being
      applied.  See more information about this sim here:
-     https://github.com/nasa/trick/tree/master/trick_sims/SIM_splashdown
+     https://github.com/nasa/trick/tree/master/trick_sims/SIM_satellite
 start_mode: PAUSED
 end_mode: PAUSED
 background_color: [0.0, 0.0, 0.05]

@@ -5,11 +5,7 @@ import socket, time
 from pathlib import Path
 import threading
 
-# Add path to virgo module
-thisFileDir = os.path.dirname(os.path.abspath(inspect.getsourcefile(lambda:0)))
-virgo_dir=os.path.abspath(os.path.join(thisFileDir, '../'))
-sys.path.append(virgo_dir)
-from VirgoKovizInterface import KovizInterface
+from virgo.VirgoKovizInterface import KovizInterface
 
 # --- Modular VTK Imports (Replaces 'import vtk') ---
 from vtkmodules.vtkRenderingCore import (

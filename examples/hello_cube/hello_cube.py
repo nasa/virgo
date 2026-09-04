@@ -1,10 +1,8 @@
 #!/usr/bin/env python3
 import sys, os, argparse, yaml, inspect
-# Add location of VIRGO code to sys.path so we can import classes
 thisFileDir = os.path.dirname(os.path.abspath(inspect.getsourcefile(lambda:0)))
-sys.path.append(os.path.abspath(os.path.join(thisFileDir, '../../')))
 # Import the only VIRGO class we need
-from Virgo import VirgoScene
+from virgo.Virgo import VirgoScene
 
 parser = argparse.ArgumentParser(
     description='Hello Cube VIRGO example',

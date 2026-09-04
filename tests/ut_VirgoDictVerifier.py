@@ -4,11 +4,7 @@ import io
 from numpy.testing import assert_allclose
 import pdb
 
-# Add path to virgo module
-thisFileDir = os.path.dirname(os.path.abspath(inspect.getsourcefile(lambda:0)))
-virgo_dir=os.path.abspath(os.path.join(thisFileDir, '../'))
-sys.path.append(virgo_dir)
-from VirgoDictVerifier import *
+from virgo.VirgoDictVerifier import *
 
 def suite():
     """Create test suite from test cases here and return"""

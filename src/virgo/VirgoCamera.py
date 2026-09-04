@@ -15,7 +15,7 @@ from vtkmodules.vtkCommonCore import (
     vtkPoints,
 )
 
-from VirgoNode import VirgoSceneNode
+from .VirgoNode import VirgoSceneNode
 
 class VirgoCamera():
     """

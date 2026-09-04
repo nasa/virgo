@@ -1,10 +1,7 @@
-import os, sys, unittest, vtk, inspect
+import os, unittest, vtk, inspect
 import numpy as np
 
-thisFileDir = os.path.dirname(os.path.abspath(inspect.getsourcefile(lambda:0)))
-virgo_dir=os.path.abspath(os.path.join(thisFileDir, '../'))
-sys.path.append(virgo_dir)
-tests_dir=os.path.join(virgo_dir, 'tests')
+tests_dir = os.path.dirname(os.path.abspath(inspect.getsourcefile(lambda:0)))
 
 class VisualizableTestCase(unittest.TestCase):
     """

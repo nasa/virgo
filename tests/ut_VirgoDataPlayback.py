@@ -4,13 +4,10 @@ import io
 from unittest.mock import patch
 import pdb
 
-# Add path to virgo module
-thisFileDir = os.path.dirname(os.path.abspath(inspect.getsourcefile(lambda:0)))
-virgo_dir=os.path.abspath(os.path.join(thisFileDir, '../'))
-sys.path.append(virgo_dir)
-from VirgoDataPlayback import *
-meshes_dir=os.path.join(virgo_dir, 'meshes')
-tests_dir=os.path.join(virgo_dir, 'tests')
+import virgo
+from virgo.VirgoDataPlayback import *
+meshes_dir=os.path.join(os.path.dirname(virgo.__file__), 'meshes')
+tests_dir=os.path.dirname(os.path.abspath(inspect.getsourcefile(lambda:0)))
 from VisualizableTestCase import VisualizableTestCase
 
 def suite():
@@ -108,7 +105,7 @@ class VirgoDataPlaybackFunctionsTestCase(unittest.TestCase):
 class VirgoDataPlaybackHeadlessTestCase(unittest.TestCase):
     def setUp(self):
         self.test_name =f"{self.__class__.__name__}_{self._testMethodName}"
-        self.test_video = os.path.join(thisFileDir, '.'+self.test_name+'.mp4')
+        self.test_video = os.path.join(tests_dir, '.'+self.test_name+'.mp4')
         self.scene = {}
         self.scene['resolution']  = "640x320"
         self.scene['actors']  = {}

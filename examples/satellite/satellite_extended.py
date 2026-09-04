@@ -1,12 +1,10 @@
 #!/usr/bin/env python3
 import sys, os, argparse, yaml, inspect
-# Add location of VIRGO code to sys.path so we can import classes
 thisFileDir = os.path.dirname(os.path.abspath(inspect.getsourcefile(lambda:0)))
-sys.path.append(os.path.abspath(os.path.join(thisFileDir, '../../')))
 # Import the only VIRGO class we need
-from VirgoDataPlayback import VirgoDataPlayback
-from VirgoHud import VirgoHud
-from Virgo import VirgoControlCenter
+from virgo.VirgoDataPlayback import VirgoDataPlayback
+from virgo.VirgoHud import VirgoHud
+from virgo.Virgo import VirgoControlCenter
 
 # These VTK modules are needed to build the crosshair for the custom HUD
 from vtkmodules.vtkRenderingCore import (

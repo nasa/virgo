@@ -1,11 +1,7 @@
 import os, sys, inspect
 import re
 import numpy as np
-from VirgoDataLoader import VirgoDataLoader
-
-# For TrickPy, the python module that can load trick data record produced files
-thisFileDir = os.path.dirname(os.path.abspath(inspect.getsourcefile(lambda:0)))
-sys.path.append(os.path.abspath(os.path.join(thisFileDir, 'deps')))
+from .VirgoDataLoader import VirgoDataLoader
 
 class VirgoTrickpyFileLoader(VirgoDataLoader):
     """

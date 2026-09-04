@@ -3,13 +3,10 @@ import unittest
 import pdb
 from numpy.testing import assert_allclose
 
-# Add path to virgo module
-thisFileDir = os.path.dirname(os.path.abspath(inspect.getsourcefile(lambda:0)))
-virgo_dir=os.path.abspath(os.path.join(thisFileDir, '../'))
-sys.path.append(virgo_dir)
-from Virgo import *
-meshes_dir=os.path.join(virgo_dir, 'meshes')
-tests_dir=os.path.join(virgo_dir, 'tests')
+import virgo
+from virgo.Virgo import *
+meshes_dir=os.path.join(os.path.dirname(virgo.__file__), 'meshes')
+tests_dir=os.path.dirname(os.path.abspath(inspect.getsourcefile(lambda:0)))
 from VisualizableTestCase import VisualizableTestCase
 
 def suite():

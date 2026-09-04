@@ -7,6 +7,6 @@ This directory provides an example of how the VIRGO python classes can be extend
 
 ## Additional Dependencies Specific to this Example
 
-This example uses the pip package `requests` in addition to the core VIRGO dependencies provided by `requirements.txt`. To install this, simply source the virtual environment (details in `../../README.md`) and run `pip install requests`.
+This example uses the pip package `requests` in addition to the core VIRGO dependencies. To install this, simply source the virtual environment (details in `../../README.md`) and run `pip install requests` (or `pip install ".[examples]"` from the repo root).
 
 ## TBD more info goes here

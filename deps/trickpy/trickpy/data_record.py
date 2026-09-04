@@ -66,6 +66,7 @@ from .variable import VariableInfo, Variable
 from .views import ListView, KeysView, ValuesView, ItemsView
 from . import loaders
 from .summaries import print_files_summary, print_runs_summary
+from . import paths
 
 try:
     import h5py
@@ -324,17 +325,17 @@ _dr_file_re = re.compile(r"log_(?P<group_name>.+)\.(trk|csv|h5)")
 
 def _is_data_record_file(path):
     """Return ``True`` if *path* is a data record file."""
-    file_name = os.path.basename(path)
+    file_name = path.name
     m = _dr_file_re.match(file_name)
     if m:
-        if os.path.isfile(path):
+        if path.is_file():
             return True
     return False
 
 
 def _parse_group_name(path):
     """Parse the group name from the data record file *path*."""
-    file_name = os.path.basename(path)
+    file_name = path.name
     m = _dr_file_re.match(file_name)
     if m:
         return m.group("group_name")
@@ -355,38 +356,40 @@ def _load_hdf5_info(path):
     """Load information about a data record file in the HDF5 format."""
     if h5py is None:
         raise IOError("loading .h5 files requires h5py")
-    with h5py.File(path, 'r') as f:
-        return _read_hdf5_info(f)
+    with path.open("rb") as ff:
+        with h5py.File(ff, "r") as f:
+            return _read_hdf5_info(f)
+
+
+def _read_hdf5(f, variables):
+    """Read a data record file in the HDF5 format."""
+    info = _read_hdf5_info(f)
+
+    if variables is None:
+        data = OrderedDict((v, Variable(f[v][...],
+                                        info[v].units,
+                                        info=info.get(v),
+                                        copy=False,
+                                        readonly=True))
+                           for v in info)
+    else:
+        data = OrderedDict((v, Variable(f[v][...],
+                                        info[v].units,
+                                        info=info.get(v),
+                                        copy=False,
+                                        readonly=True))
+                           for v in info if v in variables)
+
+    return ParsedGroup(data)
 
 
 def _load_hdf5(path, variables):
     """Load a data record file in the HDF5 format."""
-
     if h5py is None:
         raise IOError("loading .h5 files requires h5py")
-
-    with h5py.File(path, 'r') as f:
-
-        info = _read_hdf5_info(f)
-
-        if variables is None:
-            data = OrderedDict((v, Variable(f[v][...],
-                                            info[v].units,
-                                            info=info.get(v),
-                                            copy=False,
-                                            readonly=True))
-                               for v in info)
-        else:
-            data = OrderedDict((v, Variable(f[v][...],
-                                            info[v].units,
-                                            info=info.get(v),
-                                            copy=False,
-                                            readonly=True))
-                               for v in info if v in variables)
-
-        out = ParsedGroup(data)
-
-    return out
+    with path.open("rb") as ff:
+        with h5py.File(ff, "r") as f:
+            return _read_hdf5(f, variables)
 
 
 _trick10_format_dict = {
@@ -614,58 +617,65 @@ def _read_trk_info(f):
 
 def _load_trk_info(path):
     """Load information about a data record file in the Trick binary format."""
-    with open(path, 'rb') as f:
+    with path.open("rb") as f:
         return _read_trk_info(f)
+
+
+def _read_trk(f, path, variables):
+    """Read a data record file in the Trick binary format."""
+    info = _read_trk_info(f)
+
+    dtype = []
+    fields = {}
+    for i, v in enumerate(info.raw_variables()):
+        field = 'f{}'.format(i)
+        varinfo = info[v]
+        dtype.append((field, varinfo.typestr))
+        fields[v] = field
+
+    if variables is None:
+        if isinstance(path, paths.FileSystemPath):
+            data = np.fromfile(f, dtype=dtype)
+        else:
+            data = np.frombuffer(f.read(), dtype=dtype)
+        return UnparsedGroup(data, info, fields)
+    else:
+        total_size = sum(info[v].size for v in info.raw_variables())
+        chunk_size = 100 * 1024 * 1024 # 100 MB
+        lines_per_chunk = chunk_size // total_size
+
+        variables_to_load = [v for v in info if v in variables]
+
+        loaded_raw_data = {}
+        while True:
+            if isinstance(path, paths.FileSystemPath):
+                data = np.fromfile(f, dtype=dtype, count=lines_per_chunk)
+            else:
+                data = np.frombuffer(f, dtype=dtype, count=lines_per_chunk)
+            if data.size == 0:
+                break
+            for v in variables_to_load:
+                array = loaded_raw_data.get(v)
+                field = fields[v]
+                if array is None:
+                    loaded_raw_data[v] = data[field]
+                else:
+                    loaded_raw_data[v] = np.append(array, data[field])
+
+        loaded_data = OrderedDict((v, Variable(loaded_raw_data.get(v, []),
+                                               info[v].units,
+                                               info=info.get(v),
+                                               copy=False,
+                                               readonly=True))
+                                  for v in variables_to_load)
+
+        return ParsedGroup(loaded_data)
 
 
 def _load_trk(path, variables):
     """Load a data record file in the Trick binary format."""
-
-    with open(path,'rb') as f:
-
-        info = _read_trk_info(f)
-
-        dtype = []
-        fields = {}
-        for i, v in enumerate(info.raw_variables()):
-            field = 'f{}'.format(i)
-            varinfo = info[v]
-            dtype.append((field, varinfo.typestr))
-            fields[v] = field
-
-        if variables is None:
-            data = np.fromfile(f, dtype=dtype)
-            out = UnparsedGroup(data, info, fields)
-        else:
-            total_size = sum(info[v].size for v in info.raw_variables())
-            chunk_size = 100 * 1024 * 1024 # 100 MB
-            lines_per_chunk = chunk_size // total_size
-
-            variables_to_load = [v for v in info if v in variables]
-
-            loaded_raw_data = {}
-            while True:
-                data = np.fromfile(f, dtype=dtype, count=lines_per_chunk)
-                if data.size == 0:
-                    break
-                for v in variables_to_load:
-                    array = loaded_raw_data.get(v)
-                    field = fields[v]
-                    if array is None:
-                        loaded_raw_data[v] = data[field]
-                    else:
-                        loaded_raw_data[v] = np.append(array, data[field])
-
-            loaded_data = OrderedDict((v, Variable(loaded_raw_data.get(v, []),
-                                                   info[v].units,
-                                                   info=info.get(v),
-                                                   copy=False,
-                                                   readonly=True))
-                                      for v in variables_to_load)
-
-            out = ParsedGroup(loaded_data)
-
-    return out
+    with path.open("rb") as f:
+        return _read_trk(f, path, variables)
 
 
 class CsvVariableInfo(VariableInfo):
@@ -711,48 +721,57 @@ def _read_csv_info(f):
 
 def _load_csv_info(path):
     """Load information about a data record file in the Trick ASCII format."""
-    with open(path, 'r') as f:
+    with path.open("rb") as f:
+        # The file-like objects we get from tarfile are always in binary mode, so we just always
+        # open files in binary mode for consistency.  This wrapper decodes the stream, making a new
+        # file-like object that is in text mode.
+        f = io.TextIOWrapper(f)
         return _read_csv_info(f)
+
+
+def _read_csv(f, variables):
+    """Read a data record file in the Trick ASCII format."""
+    if pandas is None:
+        raise IOError("loading .csv files requires pandas")
+
+    info = _read_csv_info(f)
+
+    data = pandas.read_csv(f,
+                           engine="c",
+                           skipinitialspace=True,
+                           usecols=[i.column_index for i in info.values()],
+                           header=None)
+
+    if variables is None:
+        loaded_data = OrderedDict((v, Variable(data[i.column_index].values,
+                                               i.units,
+                                               info=i,
+                                               copy=False,
+                                               readonly=True))
+                                  for (v, i) in info.items())
+    else:
+        loaded_data = OrderedDict((v, Variable(data[i.column_index].values,
+                                               i.units,
+                                               info=i,
+                                               readonly=True)) # The underlying data is all in one np.array, so we need to copy
+                                  for (v, i) in info.items() if v in variables)
+
+    return ParsedGroup(loaded_data)
 
 
 def _load_csv(path, variables):
     """Load a data record file in the Trick ASCII format."""
-
-    if pandas is None:
-        raise IOError("loading .csv files requires pandas")
-
-    with open(path, 'r') as f:
-
-        info = _read_csv_info(f)
-
-        data = pandas.read_csv(f,
-                               engine="c",
-                               skipinitialspace=True,
-                               usecols=[i.column_index for i in info.values()],
-                               header=None)
-
-        if variables is None:
-            loaded_data = OrderedDict((v, Variable(data[i.column_index].values,
-                                                   i.units,
-                                                   info=i,
-                                                   copy=False,
-                                                   readonly=True))
-                                      for (v, i) in info.items())
-        else:
-            loaded_data = OrderedDict((v, Variable(data[i.column_index].values,
-                                                   i.units,
-                                                   info=i,
-                                                   readonly=True)) # The underlying data is all in one np.array, so we need to copy
-                                      for (v, i) in info.items() if v in variables)
-
-        out = ParsedGroup(loaded_data)
-
-    return out
+    with path.open("rb") as f:
+        # The file-like objects we get from tarfile are always in binary mode, so we just always
+        # open files in binary mode for consistency.  This wrapper decodes the stream, making a new
+        # file-like object that is in text mode.
+        f = io.TextIOWrapper(f)
+        return _read_csv(f, variables)
 
 
 def _load_file_info(path):
     """Load information about a data record file."""
-    root, ext = os.path.splitext(os.path.basename(path))
+    root, ext = os.path.splitext(path.name)
     if ext == '.h5':
         return _load_hdf5_info(path)
     elif ext == '.trk':
@@ -765,7 +784,7 @@ def _load_file_info(path):
 
 def _load_file(path, variables):
     """Load a data record file."""
-    root, ext = os.path.splitext(os.path.basename(path))
+    root, ext = os.path.splitext(path.name)
     if ext == '.h5':
         return _load_hdf5(path, variables)
     elif ext == '.trk':
@@ -835,8 +854,8 @@ def load_file_info(path):
     Parameters
     ----------
 
-    path : str
-        File system path of the data record file.
+    path : path-like
+        Path of the data record file.
 
     Returns
     -------
@@ -855,6 +874,7 @@ def load_file_info(path):
     ['sys.exec.out.time', 'altitude', 'mass']
 
     """
+    path = paths.infer(path)
     return _load_file_info(path)
 
 
@@ -864,8 +884,8 @@ def load_file(path, variables=None):
     Parameters
     ----------
 
-    path : str
-        File system path of the data record file.
+    path : path-like
+        Path of the data record file.
     variables : list of str, optional
         Names of the variables to load.  All other variables will be skipped.
         If ``None``, load all variables.  Default is ``None``.
@@ -884,6 +904,7 @@ def load_file(path, variables=None):
     Variable([0.0, 0.1, 0.2], 's')
 
     """
+    path = paths.infer(path)
     return _load_file(path, variables)
 
 
@@ -893,8 +914,8 @@ def load_run_info(path, show_warnings=True, skip_errors=False):
     Parameters
     ----------
 
-    path : str
-        File system path of the data record file.
+    path : path-like
+        Path of the data record file.
     show_warnings : bool, optional
         If ``True``, show a warning for data record files that could not be
         loaded.  If ``False``, do not show warnings.  Default is ``True``.
@@ -916,6 +937,8 @@ def load_run_info(path, show_warnings=True, skip_errors=False):
     KeysView(['group1', 'group2'])
 
     """
+    path = paths.infer(path)
+
     info, skipped_files = _load_run_info(path, skip_errors)
 
     if show_warnings:
@@ -931,8 +954,8 @@ def load_run(path, groups=None, variables=None, show_progress=True, show_warning
     Parameters
     ----------
 
-    path : str
-        File system path of the RUN directory.
+    path : path-like
+        Path of the RUN directory.
     groups : list of str, optional
         Names of the groups to load.  All other groups will be skipped.  If
         ``None``, load all groups.  Default is ``None``.
@@ -968,6 +991,8 @@ def load_run(path, groups=None, variables=None, show_progress=True, show_warning
     Variable([0.0, 0.1, 0.2], 's')
 
     """
+    path = paths.infer(path)
+
     data, skipped_files = _load_run(path, groups, variables, show_progress, parallel, skip_errors)
 
     if show_warnings:
@@ -983,8 +1008,8 @@ def load_monte(path, runs=None, groups=None, variables=None, show_progress=True,
     Parameters
     ----------
 
-    path : str
-        File system path of the MONTE directory.
+    path : path-like
+        Path of the MONTE directory.
     runs : list of int, optional
         Run numbers to load.  All other runs will be skipped.  If ``None``, load
         all runs.  Default is ``None``.
@@ -1032,6 +1057,8 @@ def load_monte(path, runs=None, groups=None, variables=None, show_progress=True,
     Variable([0.0, 0.1, 0.2], 's')
 
     """
+    path = paths.infer(path)
+
     data, problem_runs = _load_monte(path, runs, groups, variables, show_progress, parallel, skip_errors)
 
     if show_warnings:

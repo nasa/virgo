@@ -7,3 +7,6 @@ examples/pendulums/*.csv
 examples/cannon/*.csv
 *.pyc
 .venv
+*.egg-info/
+build/
+dist/

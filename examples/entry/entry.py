@@ -3,12 +3,10 @@ import numpy as np
 import csv, math
 
 import sys, os, argparse, yaml, inspect
-# Add location of VIRGO code to sys.path so we can import classes
 thisFileDir = os.path.dirname(os.path.abspath(inspect.getsourcefile(lambda:0)))
-sys.path.append(os.path.abspath(os.path.join(thisFileDir, '../../')))
 
 # Import the only VIRGO class we need
-from VirgoDataPlayback import VirgoDataPlayback
+from virgo.VirgoDataPlayback import VirgoDataPlayback
 
 def get_args():
     parser = argparse.ArgumentParser(description=
@@ -30,7 +28,7 @@ def get_args():
 class EntryExample:
     def __init__(self):
         args = get_args()
-        self.generate_trajectory()
+        self.generate_trajectory(args.data_dir)
         with open(args.scene_config) as file:
             scene = yaml.safe_load(file) 
         # VirgoDataPlayback is the VirgoScene we want because it's built
@@ -43,7 +41,7 @@ class EntryExample:
         # Start the Virgo 3D scene
         return(self.v.run())
 
-    def generate_trajectory(self):
+    def generate_trajectory(self, data_dir):
         """
         Big 'ole warning on this baby Google Gemini AI wrote this function
         in October 2025 and I was at best, reasonably happy. Wouldn't it be
@@ -59,7 +57,7 @@ class EntryExample:
         # --- 1. Constants ---
         MU_EARTH = 3.986004418e14  # Earth's gravitational parameter (m^3/s^2)
         R_EARTH = 6378137.0          # Earth equatorial radius
-        FILENAME = "log_trajectory.csv"
+        FILENAME = os.path.join(data_dir, "log_trajectory.csv")
         
         # Atmospheric drag parameters
         M_SPACECRAFT = 5000.0       # (kg) Mass of the vehicle

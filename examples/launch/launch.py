@@ -4,11 +4,9 @@ import numpy as np
 import csv
 from datetime import datetime
 import sys, os, argparse, yaml, inspect
-# Add location of VIRGO code to sys.path so we can import classes
 thisFileDir = os.path.dirname(os.path.abspath(inspect.getsourcefile(lambda:0)))
-sys.path.append(os.path.abspath(os.path.join(thisFileDir, '../../')))
 # Import the only VIRGO class we need
-from VirgoDataPlayback import VirgoDataPlayback
+from virgo.VirgoDataPlayback import VirgoDataPlayback
 
 parser = argparse.ArgumentParser(description=
         'Visualize the launch vehcile data in log_lv.csv using VIRGO.',
@@ -38,7 +36,8 @@ class LaunchVehicleSimulator:
     on core features and not the physical accuracy of these examples.
     """
 
-    def __init__(self):
+    def __init__(self, data_dir=None):
+        self.data_dir = data_dir or os.getcwd()
         self.run_simulation()
 
     def compute_eci_to_ecef_dcm(self, t):
@@ -100,7 +99,8 @@ class LaunchVehicleSimulator:
         # ======================
         # Output CSV
         # ======================
-        with open("log_lv.csv", "w", newline="") as f:
+        csv_path = os.path.join(self.data_dir, "log_lv.csv")
+        with open(csv_path, "w", newline="") as f:
             writer = csv.writer(f)
 
             # Header with units
@@ -194,7 +194,7 @@ class LaunchVehicleSimulator:
 
 class LaunchVehicleExample:
     def __init__(self):
-        sim = LaunchVehicleSimulator()
+        sim = LaunchVehicleSimulator(args.data_dir)
         with open(args.scene_config) as file:
             scene = yaml.safe_load(file) 
         # VirgoDataPlayback is the VirgoScene we want because it's built

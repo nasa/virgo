@@ -1,11 +1,9 @@
 #!/usr/bin/env python3
 import sys, os, argparse, csv, inspect, yaml
 import numpy as np
-# Add location of VIRGO code to sys.path so we can import classes
 thisFileDir = os.path.dirname(os.path.abspath(inspect.getsourcefile(lambda:0)))
-sys.path.append(os.path.abspath(os.path.join(thisFileDir, '../../')))
 # Import the only VIRGO class we need
-from VirgoDataPlayback import VirgoDataPlayback
+from virgo.VirgoDataPlayback import VirgoDataPlayback
 
 parser = argparse.ArgumentParser(
     description='Generate cannon data then visualize it with VIRGO',
@@ -221,8 +219,9 @@ class CannonExample:
         # Run simulation
         self.sim.run()
         
-        # Save results
-        self.sim.save_to_csv()
+        # Save results to the data directory
+        csv_path = os.path.join(args.data_dir, 'log_cannonball.csv')
+        self.sim.save_to_csv(csv_path)
 
         # VirgoDataPlayback is the VirgoScene we want because it's built
         # to consume TrickPy-compatible data, which log_cannonball.csv meets

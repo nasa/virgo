@@ -1,0 +1,43 @@
+[project]
+name = "trickpy"
+authors = [
+    { name = "Daniel Matz", email = "daniel.a.matz@nasa.gov" }
+]
+dynamic = ["version"]
+description = "A Python package for loading Trick data record, data collect, and Monte Carlo dispersion files."
+readme = "README.md"
+requires-python = ">=3.9"
+dependencies = [
+    "numpy>=1",
+    "h5py>=1",
+    "scipy>=1",
+    "pandas>=1",
+]
+
+[project.optional-dependencies]
+test = [
+    "pytest",
+    "coverage",
+]
+docs = [
+    "sphinx",
+    "sphinx-rtd-theme",
+    "numpydoc",
+]
+
+[tool.setuptools]
+packages = ["trickpy"]
+
+[tool.setuptools.package-data]
+trickpy = [
+    "trick_units/makefile",
+    "trick_units/*.hh",
+    "trick_units/*.cpp",
+]
+
+[tool.setuptools.dynamic]
+version = {attr = "trickpy.__version__"}
+
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"

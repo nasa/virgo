@@ -2,13 +2,10 @@ import os, sys, shutil, inspect, time
 import unittest
 import pdb
 
-# Add path to virgo module
-thisFileDir = os.path.dirname(os.path.abspath(inspect.getsourcefile(lambda:0)))
-virgo_dir=os.path.abspath(os.path.join(thisFileDir, '../'))
-sys.path.append(virgo_dir)
-from VirgoDataSource import *
-meshes_dir=os.path.join(virgo_dir, 'meshes')
-tests_dir=os.path.join(virgo_dir, 'tests')
+import virgo
+from virgo.VirgoDataSource import *
+meshes_dir=os.path.join(os.path.dirname(virgo.__file__), 'meshes')
+tests_dir=os.path.dirname(os.path.abspath(inspect.getsourcefile(lambda:0)))
 
 def suite():
     """Create test suite from test cases here and return"""

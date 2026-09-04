@@ -1,6 +1,6 @@
 import math, os, inspect
-from Virgo import VirgoSceneNodeVector
-from VirgoActor import VirgoActor
+from .Virgo import VirgoSceneNodeVector
+from .VirgoActor import VirgoActor
 
 class VirgoHud:
     """
@@ -32,7 +32,7 @@ class VirgoHud:
         self.lighting_mode = None
         self.help = None
         self.debug = False
-        self.version = self.get_version()
+        self.version = f"alpha {self.get_version()}"
 
     def set_color(self, color):
         for ta in self.text_actors:
@@ -47,9 +47,7 @@ class VirgoHud:
     def get_version(self):
         version="UNKNOWN"
         try:
-            this_dir = os.path.dirname(os.path.abspath(inspect.getsourcefile(lambda:0)))
-            with open(os.path.join(this_dir, 'version.txt'), "r") as f:
-                version = f.readline().rstrip("\n")
+            from . import __version__ as version
         except Exception as e:
             msg = (f"ERROR: Cannot determine VIRGO version\n{e}")
             raise RuntimeError (msg)

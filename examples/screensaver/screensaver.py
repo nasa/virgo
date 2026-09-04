@@ -3,12 +3,10 @@ import datetime
 import numpy as np
 
 import sys, os, argparse, yaml, inspect
-# Add location of VIRGO code to sys.path so we can import classes
 thisFileDir = os.path.dirname(os.path.abspath(inspect.getsourcefile(lambda:0)))
-sys.path.append(os.path.abspath(os.path.join(thisFileDir, '../../')))
 # Import the only VIRGO class we need
-from Virgo import VirgoScene, VirgoControlCenter
-from VirgoNode import VirgoSceneNode
+from virgo.Virgo import VirgoScene, VirgoControlCenter
+from virgo.VirgoNode import VirgoSceneNode
 
 class VirgoScreenSaverControlCenter(VirgoControlCenter):
   """

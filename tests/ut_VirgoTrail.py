@@ -3,14 +3,11 @@ import unittest
 import numpy as np
 from numpy.testing import assert_allclose
 
-# Add path to virgo module
-thisFileDir = os.path.dirname(os.path.abspath(inspect.getsourcefile(lambda:0)))
-virgo_dir=os.path.abspath(os.path.join(thisFileDir, '../'))
-sys.path.append(virgo_dir)
-from VirgoTrail import VirgoTrail, VirgoTrailSegment
+import virgo
+from virgo.VirgoTrail import VirgoTrail, VirgoTrailSegment
 from unittest.mock import Mock
-meshes_dir=os.path.join(virgo_dir, 'meshes')
-tests_dir=os.path.join(virgo_dir, 'tests')
+meshes_dir=os.path.join(os.path.dirname(virgo.__file__), 'meshes')
+tests_dir=os.path.dirname(os.path.abspath(inspect.getsourcefile(lambda:0)))
 from VisualizableTestCase import VisualizableTestCase
 
 def suite():

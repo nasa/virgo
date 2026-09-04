@@ -1,8 +1,8 @@
-from Virgo import VirgoScene
-from VirgoTrickpyFileLoader import VirgoTrickpyFileLoader
-from VirgoDataSource import VirgoDataFileSource
-from VirgoNode import VirgoSceneNode
-from VirgoLabel import VirgoLabel
+from .Virgo import VirgoScene
+from .VirgoTrickpyFileLoader import VirgoTrickpyFileLoader
+from .VirgoDataSource import VirgoDataFileSource
+from .VirgoNode import VirgoSceneNode
+from .VirgoLabel import VirgoLabel
 class VirgoDataPlayback(VirgoScene):
     """
     Class used as entrypoint for those wanting VIRGO data playback capability.

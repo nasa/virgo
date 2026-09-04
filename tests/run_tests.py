@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 import argparse
+import doctest
 import unittest, subprocess, collections
 import os
 import sys
@@ -9,9 +10,13 @@ from io import StringIO
 
 import os, sys, pdb
 
+import virgo
+import virgo.Virgo
+import virgo.VirgoActor
+from virgo.Virgo import *
+
 this_dir = os.path.abspath(os.path.dirname(__file__))
-sys.path.append(os.path.abspath(os.path.join(this_dir, '../')))
-from Virgo import *
+virgo_dir = os.path.dirname(virgo.__file__)
 
 def run_subprocess(command, m_shell=False, m_cwd=None, m_stdout=subprocess.PIPE, m_stderr=subprocess.PIPE):
     """
@@ -71,21 +76,29 @@ def run_tests(args):
     runner = unittest.TextTestRunner(verbosity=args.verbosity, buffer=True)
     ut_results = runner.run(overall_suite)
 
-    # Run all doc tests by eating our own dogfood
-    doctest_files = ['Virgo.py', 'VirgoActor.py']
+    # Run all doc tests by eating our own dogfood. Doctests are run in-process
+    # (rather than via `python -m doctest <file>`) because Virgo.py and
+    # VirgoActor.py use package-relative imports, which only resolve when the
+    # module is imported as part of the virgo package, not as a standalone script.
+    doctest_modules = [virgo.Virgo, virgo.VirgoActor]
     doctest_results = []
-    for file in doctest_files:
-        print(f"Running doctest on {file}...")
-        result =  run_subprocess(command=f'python -m doctest -v ../{file}', m_shell=True)
-        if result.code != 0:
+    for module in doctest_modules:
+        print(f"Running doctest on {module.__name__}...")
+        stdout_capture = StringIO()
+        previous_stdout = sys.stdout
+        sys.stdout = stdout_capture
+        try:
+            result = doctest.testmod(module, verbose=True)
+        finally:
+            sys.stdout = previous_stdout
+        code = 1 if result.failed > 0 else 0
+        if code != 0:
             print(f"  FAILED")
         else:
             print(f"  OK")
-        doctest_results.append(result.code)
-        with open(f'{file}_doctest_stdout.txt', 'w') as f:
-            f.writelines(result.stdout)
-        with open(f'{file}_doctest_stderr.txt', 'w') as f:
-            f.writelines(result.stderr)
+        doctest_results.append(code)
+        with open(f'{module.__name__}_doctest_stdout.txt', 'w') as f:
+            f.write(stdout_capture.getvalue())
 
     print(f"doctest verbose output can be found in tests/<file>_doctest_*.txt")
     return (len(ut_results.failures) > 0  or len(ut_results.errors) > 0 or
@@ -97,7 +110,7 @@ if __name__ == '__main__':
     # Create our Argument Parser
     parser = argparse.ArgumentParser(
         description="Execute all VIRGO python unit and doc tests. Must be run from this directory"
-        " inside a python3 environment with dependencies described by virgo/requirements.txt.")
+        " inside a python3 environment with the virgo package installed (pip install .).")
     parser.add_argument("-v", "--verbosity", type=int,
          help="Reporting level when running from the console.", choices=[1, 2, 3, 4, 5], default=1)
 

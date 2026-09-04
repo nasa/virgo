@@ -67,18 +67,58 @@ If your use case needs more capabilites, see the [extending virgo](#extending-vi
 
 ## Module Dependencies
 
-This module requires python3.11 or later and the `pip` packages listed in `requirements.txt`. To pull down these packages to a standard python3 virtual environment run the following in the directory you wish to create the `.venv`:
+This module requires python3.11 or later. VIRGO is packaged as a standard pip-installable
+project using `pyproject.toml` ad we highly recommend your project do the same if including VIRGO.
+
+### Using uv to include VIRGO in your project
+
+Using the standard dependency definition in your project's `pyproject.toml`, you can include VIRGO in your project's virtual environment by adding these values:
+
+```toml
+dependencies = [
+    "virgo",
+]
+
+[tool.uv.sources]
+virgo = { git = "https://github.com/nasa/virgo", branch = "master" }
+```
+
+### Using uv for core development
+
+If you don't already have [`uv`](https://docs.astral.sh/uv/) you can install it by running:
+```bash
+curl -LsSf https://astral.sh/uv/install.sh | sh
+```
+Once you have `uv`, in your `virgo` directory run the following to setup an editable install of virgo.
+
+```bash
+uv sync              # Install core dependencies
+uv sync --extra all  # Use --extra all to install developer tools
+```
+
+### Using Standard Python3 Virtual Environment
+
+Although we only officially support `uv`, you should be able to install dependencies into a traditional python3 virtual environment run the following in the directory you wish to create the `.venv`:
 ```bash
 # Create a python3 virtual environment using python3.11 or later
-python3 -m venv .venv && source .venv/bin/activate 
-# Install virgo dependencies
-pip3 install --upgrade pip && pip3 install -r requirements.txt
+python3 -m venv .venv && source .venv/bin/activate
+# Install virgo and its dependencies from the repo root
+pip3 install --upgrade pip && pip3 install .
+```
+Optional extras can be installed alongside the core package as needed:
+```bash
+# Developer tools
+pip3 install ".[dev]"
+# Packages needed for --headless video rendering
+pip3 install ".[video]"
+# All packages
+pip3 install ".[all]"
 ```
 Once the `.venv` is created, you can source the environment in any shell before running scripts using VIRGO:
 
 ```bash
 source .venv/bin/activate
-```
+
 ## Terminology
 
 * **A VIRGO Scene** is a python dictionary (often expressed as a YAML file) that fully articulates the details of the 3D configuration that will be rendered and displayed to the user. This is the main method of configuration provided to the users of VIRGO and includes a list of `actors:`, `vectors:`, `frames:` as well as settings within the scene like lighting, data sources, labels, etc.
@@ -704,6 +744,17 @@ picker:       # Optional dictionary which holds information about the picker
 It's worth noting that **in this VIRGO alpha release error checking on the fields described above is still a work-in-progress** so there may be strange error messages if entering unexpected types in these dictionary fields.
 
 Custom sections of the dictionary can be defined by users for any purpose they wish as long as they don't conflict with what VIRGO expects in the section above.  
+
+## Utilities
+
+### `virgo-vis`
+
+```
+With VIRGO installed, the `virgo-vis` console script is available to visualize a scene
+YAML file against a trickpy-compliant data directory:
+```bash
+virgo-vis scene.yml /path/to/data_dir
+```
 
 ## Extending Virgo
 

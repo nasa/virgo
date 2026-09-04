@@ -1,8 +1,8 @@
 import numpy as np
 from typing import List
 
-from VirgoLabel import VirgoLabel
-from VirgoTrail import VirgoTrail
+from .VirgoLabel import VirgoLabel
+from .VirgoTrail import VirgoTrail
 
 from vtkmodules.vtkRenderingCore import (
   vtkActor,

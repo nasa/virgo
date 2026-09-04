@@ -1,10 +1,8 @@
 #!/usr/bin/env python3
 import sys, os, argparse, yaml, inspect
-# Add location of VIRGO code to sys.path so we can import classes
 thisFileDir = os.path.dirname(os.path.abspath(inspect.getsourcefile(lambda:0)))
-sys.path.append(os.path.abspath(os.path.join(thisFileDir, '../../')))
 # Import the only VIRGO class we need
-from VirgoDataPlayback import VirgoDataPlayback
+from virgo.VirgoDataPlayback import VirgoDataPlayback
 
 parser = argparse.ArgumentParser(
     description='Generate pendulum data then visualize it with VIRGO',
@@ -25,8 +23,8 @@ args = parser.parse_args()
 
 class PendulumExample:
     def __init__(self):
-        self.generate_pendulum_csv(logfile='log_pendulum.csv')
-        self.generate_pendulum_csv(logfile='log_pendulum_small.csv', L=0.5, rate=15)
+        self.generate_pendulum_csv(logfile=os.path.join(args.data_dir, 'log_pendulum.csv'))
+        self.generate_pendulum_csv(logfile=os.path.join(args.data_dir, 'log_pendulum_small.csv'), L=0.5, rate=15)
         with open(args.scene) as file:
             scene = yaml.safe_load(file) 
         # VirgoDataPlayback is the VirgoScene we want because it's built

@@ -1,0 +1,41 @@
+[build-system]
+requires = ["hatchling","editables"]
+build-backend = "hatchling.build"
+
+[project]
+name = "virgo"
+version = "2026.8.14"
+description = "VIRGO: Versatile Imaging and Rendering for Galactic Operations"
+readme = "README.md"
+authors = [
+    { name="Daniel Jordan", email="daniel.d.jordan@nasa.gov" },
+    { name="Jonathan Jermstad", email="jonathan.n.jermstad@nasa.gov" },
+]
+requires-python = ">=3.11"
+dependencies = [
+    "numpy",
+    "pyyaml",
+    "pydantic",
+    "vtk",
+    "requests",
+    "psutil",
+    "trickpy",
+]
+
+[tool.uv.sources]
+trickpy = { path = "./deps/trickpy" }
+
+[project.optional-dependencies]
+video = ["imageio", "imageio-ffmpeg"]
+dev = ["pytest", "ruff"]
+all = ["virgo[video,dev]"]
+
+[project.scripts]
+virgo-vis = "virgo.cli:main"
+virgo-example = "virgo.cli:example"
+
+[tool.hatch.metadata]
+allow-direct-references = true
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/virgo", "examples"]

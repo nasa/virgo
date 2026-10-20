@@ -2,8 +2,8 @@
 
 VIRGO: **V**ersatile **I**maging and **R**endering for **G**alactic **O**perations. A practical, analytical, and hardworking engineering visualization tool leveraging python-VTK.  Designed by and for engineers at NASA JSC (Johnson Space Center), VIRGO gives users insight into simulation data when typical 2D plots are insufficient. This project is developed specifically for engineers in the Guidance, Navigation, and Control (GNC) division of the Engineering Directorate but aims to provide functionality for the [Trick](https://github.com.nasa/trick)-using community and beyond. 
 
-![virgo1](images/doc/virgo_example1.png)
-![virgo2](images/doc/virgo_example2.png)
+![virgo1](src/virgo/images/doc/virgo_example1.png)
+![virgo2](src/virgo/images/doc/virgo_example2.png)
 
 VIRGO intends to be an extensible, well-tested, and robustly documented python module which can consume simulation data in different ways. However, **VIRGO is currently in *alpha* status which means it has not yet been verified or validated in any way. Use caution when using VIRGO visualizations to draw conclusions about your engineering application. It is highly recommended that you cross-reference what you are seeing with other plotting or visualization tools before using a VIRGO scene to make an engineering decision.**
 
@@ -118,6 +118,7 @@ Once the `.venv` is created, you can source the environment in any shell before 
 
 ```bash
 source .venv/bin/activate
+```
 
 ## Terminology
 
@@ -236,7 +237,7 @@ In the VIRGO framework the `parent:` relationships end up defining [directed acy
 
 For actors, the `pos:` and `ypr:` clauses allow you to define a position/rotation offset of the actor's mesh relative to the actor's local coordinate system. This can be helpful if the mesh coordinate system isn't correct for your usage and a simple rotation or position offset can fix it.  It's important to understand that driven actors which specify `pos:` and/or `ypr:` will still be `driven_by:` their local coordinate origin, not the new offset location defined by `pos:` and/or `ypr:`. Consider this example where the teapot actor has no `pos:` offset on the left, but a `pos: [3, 0, 0]` offset on the right:
 
-![actor_offset_example](images/doc/actor_offset_example.png)
+![actor_offset_example](src/virgo/images/doc/actor_offset_example.png)
 
 In both of these cases, the teapot's `driven_by:` clause will move the X-Y-Z coordinate origin.
 
@@ -340,7 +341,7 @@ Details TBD
 
 VIRGO can connect directly to an instance of [koviz](https://github.com/nasa/koviz) running on the same machine operating on the same data directory which can provide deeper introspection to the user for variables that don't display well in 3D space. The default port for this connection is currently 64054 and both VIRGO and `koviz` are listening for a connection on this port. When connected, time will be shared across applications and you will see information about the connection and port in the top left section of the default VIRGO HUD. Here's an example of what it looks like when a connection is made:
 
-![virgo_and_koviz](images/doc/virgo_and_koviz.mp4)
+![virgo_and_koviz](src/virgo/images/doc/virgo_and_koviz.mp4)
 
 Notice that any action that manipulates time in VIRGO is also reflected in `koviz`, and vice versa.  The `koviz_port` can be adjusted in the creation of `VirgoDataPlayback` and we recommend you allow this port to be specified by the end user of your VIRGO application. [Soon](https://github.com/nasa/koviz/pull/17) we expect `koviz` to also be able to manipulate this port on the command line so check `koviz -h` for more information about this as multiple people using VIRGO/koviz on the same machine could interfere with each other if all using the same port.
 
@@ -749,7 +750,6 @@ Custom sections of the dictionary can be defined by users for any purpose they w
 
 ### `virgo-vis`
 
-```
 With VIRGO installed, the `virgo-vis` console script is available to visualize a scene
 YAML file against a trickpy-compliant data directory:
 ```bash

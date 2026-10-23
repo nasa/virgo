@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "virgo"
-version = "2026.8.14"
+version = "2026.10.23"
 description = "VIRGO: Versatile Imaging and Rendering for Galactic Operations"
 readme = "README.md"
 authors = [

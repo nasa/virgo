@@ -66,7 +66,7 @@ actors:
   capsule:
     mesh: capsule.stl
     color: [0.8, 0.8, 0.8]
-    opacity: 0.99
+    opacity: 0.60
     axes: 
       when: always       # always, never, picked, or toggled
       style: line        # cylinder, line

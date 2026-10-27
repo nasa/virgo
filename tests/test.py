@@ -28,6 +28,7 @@ import ut_VirgoKovizInterface
 import ut_VirgoDictVerifier
 import ut_VirgoTrail
 import ut_VirgoCamera
+import ut_VirgoAxes
 import ut_VirgoInteractorStyles
 
 if __name__ == '__main__':
@@ -66,6 +67,7 @@ if __name__ == '__main__':
         suites.addTests(ut_VirgoDictVerifier.suite())
         suites.addTests(ut_VirgoTrail.suite())
         suites.addTests(ut_VirgoCamera.suite())
+        suites.addTests(ut_VirgoAxes.suite())
 
         # Execute all tests
         runner = unittest.TextTestRunner(verbosity=2)

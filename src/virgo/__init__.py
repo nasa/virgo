@@ -8,6 +8,7 @@ except importlib.metadata.PackageNotFoundError:
 from .Virgo import VirgoControlCenter, VirgoScene
 from .VirgoActor import VirgoActor
 from .VirgoCamera import VirgoCamera
+from .VirgoAxes import VirgoAxes
 from .VirgoConsole import VirgoConsole
 from .VirgoDataLoader import VirgoDataLoader
 from .VirgoDataPlayback import VirgoDataPlayback
@@ -32,6 +33,7 @@ __all__ = [
     'VirgoScene',
     'VirgoActor',
     'VirgoCamera',
+    'VirgoAxes',
     'VirgoConsole',
     'VirgoDataLoader',
     'VirgoDataPlayback',

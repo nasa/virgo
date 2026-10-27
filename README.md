@@ -456,7 +456,7 @@ actors:         # The dictionary which holds all actors in the scene. The
                          #   the render of actors backfaces on or off. Set to
                          #   1 to improve performance, Defaults to 0.
     axes:   # The dictionary which holds information about this actor's axes
-      when: # Optional string setting for when interal axes should be
+      when: # Optional string setting for when internal axes should be
             #   displayed with accepted values as follows:
             #   toggled - show axes when global setting (key:'a') is toggled
             #             This is the default option
@@ -467,8 +467,8 @@ actors:         # The dictionary which holds all actors in the scene. The
       length: # Optional list of 3 floats describing the length of each axis
               #  [x_axis, y_axis, z_axis]
       affect_opacity: # Optional bool (0 or 1) setting for whether opacity
-                      #   of the actor should be reduced when axes are shown.
-                      #   Defaults to 1 (true).
+                      #   of the actor should be reduced when axes are toggled
+                      #   on. Defaults to 1 (true).
     trail:  # The dictionary which holds information about this actor's trail
       enabled:   # Integer 1 or 0 (true or false) for turning this trail on
                  #   when the interactive window starts

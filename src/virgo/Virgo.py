@@ -611,17 +611,6 @@ class VirgoControlCenter:
         Note: this function is called very frequently so computational speed
         should be considered high priority
         """
-        # HACK: when axes are visible the bounding boxes are incorrectly defined
-        # and resetting the camera clipping range will pull the close clipping range
-        # so far away the followed actor is not visible. This works around the core
-        # issue which is described in detail here:
-        # https://discourse.vtk.org/t/vtkaxesactor-bounding-box-appears-to-be-affected-by-its-world-position/16290 
-        # See also configure_camera_clipping_ranges() 
-        if self.are_any_axes_visible():
-            for layer in self.cameras:
-                self.cameras[layer].restore_clipping_range()
-            return
-
         self.renderers['foreground'].ResetCameraClippingRange() 
         main_camera = self.get_active_camera()
         if self.is_any_celestial_node_in_foreground():
@@ -1700,18 +1689,6 @@ class VirgoControlCenter:
         self.renderers['foreground'].AddObserver("StartEvent", self.adjust_camera_clipping_ranges)
         self.timer_id = self.interactor.CreateRepeatingTimer(self.callback_rate)
 
-    def on_clipping_reset(self, obj, event):
-        """
-        # HACK: when axes are visible the bounding boxes are incorrectly defined
-        # and resetting the camera clipping range will pull the close clipping range
-        # so far away the followed actor is not visible. This works around the core
-        # issue which is described in detail here:
-        # https://discourse.vtk.org/t/vtkaxesactor-bounding-box-appears-to-be-affected-by-its-world-position/16290 
-        # See also configure_camera_clipping_ranges() 
-        """
-        if self.are_any_axes_visible():
-            for layer in self.cameras:
-                self.cameras[layer].revert_clipping_range()
 
     def sync_cameras(self, obj, event):
         """

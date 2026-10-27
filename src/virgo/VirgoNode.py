@@ -3,6 +3,7 @@ from typing import List
 
 from .VirgoLabel import VirgoLabel
 from .VirgoTrail import VirgoTrail
+from .VirgoAxes  import VirgoAxes
 
 from vtkmodules.vtkRenderingCore import (
   vtkActor,
@@ -47,7 +48,6 @@ class VirgoSceneNode():
         self.axes_when = 'toggled'
         self._valid_axes_when = ['always', 'never', 'picked', 'toggled']
         self.axes_style = 'cylinder'
-        self._valid_axes_styles = ['line', 'cylinder']
         self.axes_affect_opacity = True
         self.axes = None
         # Internal flag for if this node is currently picked
@@ -81,9 +81,12 @@ class VirgoSceneNode():
         self._actor_opacity_threshold = 0.8 
 
         if self.actor:
+            self.compute_actor_bounds()
             self.assembly.AddPart(self.actor)
         if self.axes:
-            self.assembly.AddPart(self.axes)
+            self.assembly.AddPart(self.axes.get_assembly())
+            if self.actor:
+                self.set_axes_length_auto()
 
         # self.local_transform represents the local transformation of this Node,
         # meaning the position/rotation/scale of this node relative to it's
@@ -336,16 +339,15 @@ class VirgoSceneNode():
         """
         self.layer = 'foreground'
         self.update(world_time)
-        if self.actor:
-            self.compute_actor_bounds()
         if self.labels:
             self.initialize_labels(world_time)
-        if self.axes_when == 'always':
-            print("WARNING: axes: when: always is not recommended until a"
-                  " resolution to the vtkAxesActor bug is implmented. Suggest"
-                  " using 'picked' or 'toggled' instead. See more at link:\n"
-                  "  https://discourse.vtk.org/t/vtkaxesactor-bounding-box-appears-to-be-affected-by-its-world-position/16290"
-                  )
+        # Configure the axes for this node
+        if self.axes:
+            if self.axes_when == 'always':
+                self.axes.show()
+            elif (self.axes_when == 'never' or 
+                  self.axes_when == 'toggled'):
+                self.axes.hide()
 
     def compute_actor_bounds(self):
         """
@@ -539,7 +541,7 @@ class VirgoSceneNode():
     def set_scale(self, scale):
         """
         Args:
-          scale: [X,Y,Z] floating point mulitplier describing how to scale the
+          scale: [X,Y,Z] floating point multiplier describing how to scale the
                assembly of this node in the X,Y,Z directions, OR a single
                float which will be applied equally in all directions.
         """
@@ -566,76 +568,49 @@ class VirgoSceneNode():
         """
         return self.local_transform.GetPosition()
 
-    def create_axes(self, position=[0,0,0]):
+    def create_axes(self):
         """
-        Create a vtkAxesActor positioned at the given position relative to this
-        node's assembly and return it to the calling function.
+        Create an axes
         """
         # Create axes actor
-        self.axes = vtkAxesActor()
-        self.set_axes_default()
+        self.axes = VirgoAxes()
 
         return self.axes
         
-    def set_axes_default(self):
-        #import pdb; pdb.set_trace()
-        bb = [ 1, 1, 1]
-        if self.actor:
-            bb = self.actor.get_bounding_box()
-
-        # Calculate arrow length as avg of largest and smallest bounding box dimension
-        length = (max(bb) + min(bb))/2.0
-        # TODO make this arrow scale a value changeable in the YAML file
-        #scale = 0.5
-        # Set axes properties
-        self.axes.SetTotalLength(self.axes_scale*length, self.axes_scale*length,
-                            self.axes_scale*length)
-        self.axes.SetShaftTypeToCylinder()  # Cylindrical shafts for visibility
-        self.axes.SetAxisLabels(True)  # Show x, y, z labels
-        self.axes.SetConeRadius(0.5)  # Size of arrowheads
-        
-        # Customize colors for clarity
-        self.axes.GetXAxisCaptionActor2D().GetProperty().SetColor(1, 0, 0)  # Red X
-        self.axes.GetYAxisCaptionActor2D().GetProperty().SetColor(0, 1, 0)  # Green Y
-        self.axes.GetZAxisCaptionActor2D().GetProperty().SetColor(0, 0, 1)  # Blue Z
-
-        # Set font size for axis labels
-        self.axes.GetXAxisCaptionActor2D().GetTextActor().GetTextProperty().SetFontSize(int(self.fs*2))
-        self.axes.GetXAxisCaptionActor2D().GetTextActor().SetTextScaleModeToNone()
-        self.axes.GetYAxisCaptionActor2D().GetTextActor().GetTextProperty().SetFontSize(int(self.fs*2))
-        self.axes.GetYAxisCaptionActor2D().GetTextActor().SetTextScaleModeToNone()
-        self.axes.GetZAxisCaptionActor2D().GetTextActor().GetTextProperty().SetFontSize(int(self.fs*2))
-        self.axes.GetZAxisCaptionActor2D().GetTextActor().SetTextScaleModeToNone()
-        
-        # Optionally set font family (e.g., to match your text actor's Courier)
-        self.axes.GetXAxisCaptionActor2D().GetTextActor().GetTextProperty().SetFontFamilyToCourier()
-        self.axes.GetYAxisCaptionActor2D().GetTextActor().GetTextProperty().SetFontFamilyToCourier()
-        self.axes.GetZAxisCaptionActor2D().GetTextActor().GetTextProperty().SetFontFamilyToCourier()
-        
-        # Set the position of the axes to the actor's origin
-        self.axes.SetPosition(0, 0, 0)
-        self.axes.SetVisibility(False) # Default to not visible
-        # TODO: This should probably be set inside the actor based on stored actor bounds
-        # when the actor is init'd. Not sure if I even like this feature so maybe remove it
-        #self.axes_label_render_threshold = length*20
-
-
     def set_axes_pickable_on(self):
-        # TODO: this doesn't work, seems very hard to make a vtkAxesActor
-        # pickable -Jordan 12/2025
-        if self.axes:
-            self.axes.PickableOn()
+        # TODO: This function never worked right with vtkAxesActor, should
+        # be revisited in VirgoAxes one day - Jordan 7/2026
+        #if self.axes:
+        #    self.axes.PickableOn()
+        pass
 
     def set_axes_pickable_off(self):
-        if self.axes:
-            self.axes.PickableOff()
+        # TODO: This function never worked right with vtkAxesActor, should
+        # be revisited in VirgoAxes one day - Jordan 7/2026
+        pass
+        #if self.axes:
+        #    self.axes.PickableOff()
 
     def set_axes_length(self, length: List[float]):
         if not isinstance(length, list):
             msg = (f"ERROR: Node {self.name}'s set_axes_length() must be given "
                    f"a 3-element list of positive floats.")
             raise RuntimeError (msg)
-        self.axes.SetTotalLength(length[0], length[1], length[2])
+        self.axes.set_length(xlen=length[0], ylen=length[1], zlen=length[2])
+
+    def set_axes_length_auto(self):
+        '''
+        Autosize self.axes based on this node's bounding box, setting it to
+        half the length of the average length of the bounding box
+        '''
+        # No actor
+        if not self.axes:
+            return
+        # No bounding box
+        if not self.actor:
+            return
+        avg_bb_len = (self.bb_longest_length + self.bb_shortest_length)/2/2
+        self.axes.set_length(xlen=avg_bb_len, ylen=avg_bb_len, zlen=avg_bb_len)
 
     def set_axes_when(self, when):
         if not self.axes:
@@ -647,23 +622,20 @@ class VirgoSceneNode():
         self.axes_when = when
         # If never, remove the entire instance
         if self.axes_when == 'never':
-            self.axes = None
+            self.axes.set_enabled(False)
         elif self.axes_when == 'always':
-            self.show_axes()
+            self.axes.set_enabled(True)
 
     def set_axes_style(self, style):
         if not self.axes:
             return
-        if style not in self._valid_axes_styles:
-            msg = (f"ERROR: Node {self.name} axes 'style' setting {style} "
-                   f"not recognized. Must be: {self._valid_axes_styles}")
-            raise RuntimeError (msg)
-        self.axes_style = style
-        if self.axes_style == 'line':
-          self.axes.SetShaftTypeToLine()
-        elif self.axes_style == 'cylinder':
-          self.axes.SetShaftTypeToCylinder()
+        if style == 'line':
+            self.axes.set_style(style='line')
+        elif style == 'cylinder':
+            self.axes.set_style(style='cylinder')
 
+        
+        
     def set_axes_affect_opacity(self, affect_opacity):
         self.axes_affect_opacity = bool(affect_opacity)
 
@@ -673,7 +645,7 @@ class VirgoSceneNode():
     def are_axes_visible(self):
         if not self.axes:
             return False
-        return(self.axes.GetVisibility())
+        return(self.axes.get_visibility())
 
     def get_root_node(self):
         """
@@ -738,25 +710,35 @@ class VirgoSceneNode():
             return self.trail.show()
 
     def hide_axes(self):
+        """
+        Hide the axes for this node, if self.axes_when permits it
+
+        TODO: See TODO in show_axes
+        """
         if not self.axes or self.axes_when == 'always':
             return
-        # Make the entire axes not visible
-        self.axes.SetVisibility(False)
-        self.axes.Modified()
+
+        self.axes.hide()
         if self.actor and self.axes_affect_opacity == True:
             self.actor.GetProperty().SetOpacity(self._last_opacity)
         #print(f"DEBUG: in hide_axes and axes bb is {self.axes.GetBounds()}")
         #print(f"DEBUG: in hide_axes and assembly bb is {self.assembly.GetBounds()}")
 
     def show_axes(self):
+        """
+        Show the axes for this node, if self.axes_when permits it
+
+        TODO: This approach doesn't allow opacity to be reduced when
+        self.axes_when == 'always'. See the calling function as well
+        and consider a different approach where opacity can be toggled
+        independently of the axes.
+        """
         if not self.axes or self.axes_when == 'never':
             return
         if self.axes_when == 'picked' and not self._currently_picked:
             return
         # Make the entire axes visible
-        #print(f"DEBUG: turning visibility of {self.name} axes on.")
-        self.axes.SetVisibility(True)
-        self.axes.Modified()
+        self.axes.show()
         #print(f"DEBUG: in show_axes and axes bb is {self.axes.GetBounds()}")
         #print(f"DEBUG: in show_axes and assembly bb is {self.assembly.GetBounds()}")
         if self.actor and self.axes_affect_opacity == True:
